@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from concurrent.futures.thread import ThreadPoolExecutor
 from sklearn.model_selection import train_test_split
+import wandb
 from models import unet_model
 from tqdm import tqdm
 from numba import prange, njit

@@ -120,9 +120,12 @@ cov_histograms/
 non_cov_masks/
 non_cov_processed/
 non_cov_histograms/
-
-teste/
 output/
 logs/
 characteristics.csv
 *.hdf5
+artifacts/
+wandb/
+
+test*
+dataset/

@@ -5,12 +5,18 @@ Created on Wed May 27 15:12:32 2020
 @author: vhviv
 """
 # %%Imports
+from wandb import Artifact
 from classifier import Classifier
 from utils import abs_path, check_folder
 import joblib
 
+from wandb_utils import ArtifactMng
+
+# Upload artifacts
+ArtifactMng.log_raw_images_data()
+
 # Read data
-cf = Classifier(input_file='characteristics.csv')
+#cf = Classifier(input_file='characteristics.csv')
 
 # %%Model validation
 #val = cf.validation(batch_size=[16, 20, 24], epochs=[250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000, 2000], units=[150, 180, 200, 220, 250, 300, 325], cv=10)
@@ -55,8 +61,8 @@ cf = Classifier(input_file='characteristics.csv')
 # txt.close()
 
 # %%Model train
-cf.fit(logs_folder=abs_path("logs\\"),
-      export_dir=abs_path('teste/'), epochs=100)
+# cf.fit(logs_folder=abs_path("logs\\"),
+#        export_dir=abs_path('./'), epochs=100)
 
 # %%Read model
 # cf = Classifier(import_model=abs_path('teste/save_2020_07_16-20_03_18.h5'),

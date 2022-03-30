@@ -1,6 +1,7 @@
 # %%Imports
 from utils import abs_path, check_folder
 from image import ImageSegmentator, ImageCharacteristics, ImageGenerator, ImageSaver, ImageProcessor
+import wandb
 
 covid_path = abs_path('dataset/covid')
 covid_masks_path = abs_path('cov_masks')
@@ -76,6 +77,3 @@ for i in cov_processed:
 
 for i in non_cov_processed:
     i.save_hist(non_cov_histograms_path)
-
-
-# %%

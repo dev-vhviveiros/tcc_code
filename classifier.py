@@ -1,6 +1,6 @@
+from unicodedata import name
 import wandb
 from wandb.keras import WandbCallback
-wandb.init(project="tcc", entity="vhviveiros")
 import tensorflow as tf
 import pandas as pd
 import datetime
@@ -13,6 +13,7 @@ from models import classifier_model
 from utils import check_folder
 from training_plot import TrainingPlot
 
+
 class Classifier:
     """
     Uso: 
@@ -22,11 +23,11 @@ class Classifier:
 
     def __init__(self, input_file=None, import_model=None):
         if input_file is not None:
-            self.read_file(input_file)
+            self.load_dataset(input_file)
         if import_model is not None:
             self.__import_model(import_model)
 
-    def read_file(self, file, test_size=0.2):
+    def load_dataset(self, file, test_size=0.2):
         # Read csv
         ctcs = pd.read_csv(file)
         entries = ctcs.iloc[:, 1:269].values
@@ -40,6 +41,20 @@ class Classifier:
         sc = StandardScaler()
         self.X_train = sc.fit_transform(X_train)
         self.X_test = sc.transform(X_test)
+
+    def log_artifacts(self):
+        with wandb.init(project="tcc", job_type="load-artifacts") as run:
+            training_set = [self.X_train, self.y_train]
+            test_set = [self.X_test, self.y_test]
+
+            raw_data = wandb.Artifact(
+                "covid_dataset", type="dataset",
+                description="Raw covid dataset, split into train/test",
+                metadata={"sizes": [len(dataset) for dataset in [training_set, test_set]]})
+
+            run.log_artifact(raw_data)
+
+            wandb.finish()
 
     def __format_validation(self, grid_cv):
         def key_filter(key):
@@ -61,7 +76,7 @@ class Classifier:
         return (tp / (tp + fn))
 
     def validation(self, n_jobs=-2, cv=10, batch_size=-1, epochs=-1, units=-1, optimizer=['adam'], activation=['relu'], activation_output=['sigmoid'], loss=['binary_crossentropy'], save_path=None):
-        
+
         classifier = KerasClassifier(build_fn=classifier_model)
 
         parameters = {'batch_size': batch_size,
@@ -93,7 +108,8 @@ class Classifier:
             "batch_size": batch_size
         }
 
-        grid_search.fit(self.X_train, self.y_train, callbacks=[WandbCallback()])
+        grid_search.fit(self.X_train, self.y_train,
+                        callbacks=[WandbCallback()])
 
         if save_path is not None and len(batch_size) + len(epochs) == 2:
             self.__save_validation(grid_search, save_path)
@@ -105,27 +121,46 @@ class Classifier:
         pd.DataFrame(result_set).to_csv(save_path)
 
     def fit(self, logs_folder, export_dir=None, batch_size=16, epochs=300, units=180, optimizer='sgd', activation='relu', activation_output='sigmoid', loss='binary_crossentropy'):
-        wandb.config = {
-            "learning_rate": 0.001,
-            "epochs": epochs,
-            "batch_size": batch_size
-        }
-        
         date_time = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
-        check_folder(logs_folder, False)
-        log_dir = logs_folder + date_time
-        # tensorboard_callback = tf.keras.callbacks.TensorBoard(
-        #     log_dir=log_dir, histogram_freq=1)
-        self.model = classifier_model(optimizer, activation, activation_output, units,
-                                      ['accuracy', Precision(), AUC(), Recall()], loss)
-        history = self.model.fit(self.X_train, self.y_train, batch_size=batch_size, epochs=epochs, verbose=1, workers=12, use_multiprocessing=True,
-                                 validation_data=(self.X_test, self.y_test), callbacks=[TrainingPlot(epochs), WandbCallback(data_type="histogram")])
-        if export_dir is not None:
-            self.__export_model(export_dir, date_time)
+        wb_config = {
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "units": units,
+            "optimizer": optimizer,
+            "activation": activation,
+            "activation_output": activation_output,
+            "loss": loss
+        }
+
+        with(wandb.init(project="tcc", job_type="model_fit", magic=True, name="fit__" + date_time,
+                        config=wb_config)) as run:
+            generated_dataset = wandb.Artifact(
+                "characteristics", type="dataset")
+            generated_dataset.add_file(
+                "characteristics.csv")
+            run.log_artifact(generated_dataset)
+            print("\nExporting generated dataset...\n")
+
+            # check_folder(logs_folder, False)
+            # log_dir = logs_folder + date_time
+            # tensorboard_callback = tf.keras.callbacks.TensorBoard(
+            #     log_dir=log_dir, histogram_freq=1)
+            self.model = classifier_model(optimizer, activation, activation_output, units,
+                                          ['accuracy', Precision(), AUC(), Recall()], loss)
+            self.model.fit(self.X_train, self.y_train, batch_size=batch_size, epochs=epochs, verbose=1, workers=12, use_multiprocessing=True,
+                           validation_data=(self.X_test, self.y_test), callbacks=[TrainingPlot(epochs), WandbCallback(data_type="histogram")])
+            if export_dir is not None:
+                self.__export_model(export_dir, date_time)
+
+            generated_model = wandb.Artifact("model", type="model")
+            generated_model.add_file("model.h5")
+            run.log_artifact(generated_model)
+            print("\nExporting model...\n")
 
     def __export_model(self, save_dir, date_time):
         check_folder(save_dir, False)
-        self.model.save(save_dir + 'save_' + date_time + '.h5')
+        #self.model.save(save_dir + 'save_' + date_time + '.h5')
+        self.model.save(save_dir + 'model.h5')
 
     def __import_model(self, model_dir, optimizer='sgd', activation='relu', activation_output='sigmoid', loss='binary_crossentropy', units=180):
         self.model = classifier_model(optimizer, activation, activation_output, units,
