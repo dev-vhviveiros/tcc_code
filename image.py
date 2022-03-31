@@ -13,15 +13,16 @@ from glob import glob
 from matplotlib import pyplot as plt
 import mahotas as mt
 
+
 class Image:
-    def __init__(self, image_file, divide=False, reshape=False):
-        self.image_file = image_file
+    def __init__(self, file_path, divide=False, reshape=False):
+        self.path = file_path
         self.divide = divide
         self.reshape = reshape
         self.data = self.__load_file()
 
     def __load_file(self, target_size=(512, 512)):
-        img = cv2.imread(self.image_file, cv2.IMREAD_GRAYSCALE)
+        img = cv2.imread(self.path, cv2.IMREAD_GRAYSCALE)
         if self.divide:
             img = img / 255
         img = cv2.resize(img, target_size)
@@ -31,7 +32,7 @@ class Image:
         return img
 
     def get_file_dir(self):
-        return os.path.splitext(os.path.basename(self.image_file))
+        return os.path.splitext(os.path.basename(self.path))
 
     def save_to(self, path_dir):
         filename, fileext = self.get_file_dir()
@@ -227,8 +228,10 @@ class ImageCharacteristics:
         self.non_cov_images = non_cov_images
 
     def save(self, file_path):
-        #Histogram
-        data = [np.hstack((img.hist(), img.haralick(), [0])) for img in self.non_cov_images]
-        data += [np.hstack((img.hist(), img.haralick(), [1])) for img in self.cov_images]
+        # Histogram
+        data = [np.hstack((img.hist(), img.haralick(), [0]))
+                for img in self.non_cov_images]
+        data += [np.hstack((img.hist(), img.haralick(), [1]))
+                 for img in self.cov_images]
 
         pd.DataFrame(data).to_csv(file_path)
