@@ -12,6 +12,7 @@ from sklearn.metrics import confusion_matrix, make_scorer, f1_score
 from models import classifier_model
 from utils import check_folder
 from training_plot import TrainingPlot
+from wandb_utils import WandbUtils
 
 
 class Classifier:
@@ -151,10 +152,8 @@ class Classifier:
                            validation_data=(self.X_test, self.y_test), callbacks=[TrainingPlot(epochs), WandbCallback(data_type="histogram")])
             if export_dir is not None:
                 self.__export_model(export_dir, date_time)
-
-            generated_model = wandb.Artifact("model", type="model")
-            generated_model.add_file("model.h5")
-            run.log_artifact(generated_model)
+            
+            run.log_artifact(WandbUtils.generate_model_artifact())
             print("\nExporting model...\n")
 
     def __export_model(self, save_dir, date_time):

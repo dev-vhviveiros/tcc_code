@@ -235,3 +235,27 @@ class ImageCharacteristics:
                  for img in self.cov_images]
 
         pd.DataFrame(data).to_csv(file_path)
+
+
+class ImageDataHistogram:
+    @staticmethod
+    def __hist_mean(images):
+        histograms = [img.hist() for img in images]
+        hist_mean = np.mean(histograms, axis=0)
+        return hist_mean
+
+    @staticmethod
+    def hist_mean(path):
+        return ImageDataHistogram.__hist_mean(ImageGenerator().generate_from(
+            abs_path(path)))
+
+    @staticmethod
+    def __hist_median(images):
+        histograms = [img.hist() for img in images]
+        hist_median = np.median(histograms, axis=0)
+        return hist_median
+
+    @staticmethod
+    def hist_median(path):
+        return ImageDataHistogram.__hist_median(ImageGenerator().generate_from(
+            abs_path(path)))

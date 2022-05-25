@@ -1,43 +1,30 @@
 from glob import glob
 import numpy as np
 import wandb
-from image import Image
-from utils import abs_path
+from image import Image, ImageGenerator
+from utils import *
 
 
-class ArtifactMng:
+class WandbUtils:
     @staticmethod
-    def log_raw_images_data():
-        covid_path = abs_path('dataset/covid')
-        non_covid_path = abs_path('dataset/normal')
-
+    def log_raw_images_artifacts():
         with(wandb.init(project='tcc', job_type="upload-artifacts")) as run:
             raw_data = wandb.Artifact("raw-files", type="dataset")
-            raw_data.add_dir(covid_path, "covid")
-            raw_data.add_dir(non_covid_path, "non-covid")
+            raw_data.add_dir(covid_path(), "covid")
+            raw_data.add_dir(non_covid_path(), "non-covid")
             run.log_artifact(raw_data)
 
         print("Artifact raw-files added")
 
     @staticmethod
+    def generate_model_artifact():
+        model = wandb.Artifact("model", type="model")
+        model.add_file(model_path, "model.h5")
+        return model
+
+    @staticmethod
     def log_interactive_table():
-        covid_path = abs_path('dataset/covid')
-        covid_masks_path = abs_path('cov_masks')
-
-        non_covid_path = abs_path('dataset/normal')
-        non_covid_masks_path = abs_path('non_cov_masks')
-
-        cov_processed_path = abs_path('cov_processed')
-        non_cov_processed_path = abs_path('non_cov_processed')
-
         with(wandb.init(project='tcc', job_type="upload-artifacts")) as run:
-            covid_images = glob(covid_path + "/*g")
-            non_covid_images = glob(non_covid_path + "/*g")
-            covid_masks = glob(covid_masks_path + "/*g")
-            non_covid_masks = glob(non_covid_masks_path + "/*g")
-            cov_processed = glob(cov_processed_path + "/*g")
-            non_cov_processed = glob(non_cov_processed_path + "/*g")
-
             def create_wandb_table(images, masks, processed, type):
                 if (len(images) != len(masks) or len(images) != len(processed)):
                     raise Exception(
@@ -70,10 +57,10 @@ class ArtifactMng:
                     table.add_data(img.path, wandb_img, wandb_img_proc)
                 wandb.log({type + " Table": table})
 
-            create_wandb_table(covid_images, covid_masks,
-                               cov_processed, "covid")
+            create_wandb_table(covid_images(), covid_masks(),
+                               cov_processed(), "covid")
             create_wandb_table(
-                non_covid_images, non_covid_masks, non_cov_processed, "non-covid")
+                non_covid_images(), non_covid_masks(), non_cov_processed(), "non-covid")
 
             run.finish()
 
@@ -83,3 +70,37 @@ class ArtifactMng:
             artifact = run.use_artifact('vhviveiros/tcc/' + name)
             artifact.download(root=abs_path(relative_path))
             print("Artifact " + name + " downloaded")
+
+    @staticmethod
+    def log_histogram_chart_comparison():
+        with(wandb.init(project='tcc', job_type="upload-artifacts")) as run:
+            cov_processed_gen = ImageGenerator().generate_from(cov_processed_path())
+            non_cov_processed_gen = ImageGenerator().generate_from(non_cov_processed_path())
+
+            cov_hist_data = np.transpose(
+                [x.hist() for x in cov_processed_gen]).tolist()
+            non_cov_hist_data = np.transpose(
+                [x.hist() for x in non_cov_processed_gen]).tolist()
+
+            cov_hist_data = list(zip([*range(1, 256)], cov_hist_data))
+            non_cov_hist_data = list(zip([*range(1, 256)], non_cov_hist_data))
+
+            cov_hist_data = [list(x) for x in list(cov_hist_data)]
+            non_cov_hist_data = [list(x) for x in list(non_cov_hist_data)]
+
+            cov_table = wandb.Table(data=cov_hist_data, columns=[
+                "Intensity", "Value"])
+            non_cov_table = wandb.Table(
+                data=non_cov_hist_data, columns=["Intensity", "Value"])
+
+            # fields = {"x": "Intensity", "value": "Value"}
+
+            # cov_chart = wandb.plot_table(vega_spec_name="tcc/cov_chart",
+            #                              data_table=cov_table,
+            #                              fields=fields)
+            # non_cov_chart = wandb.plot_table(vega_spec_name="tcc/non_cov_chart",
+            #                                  data_table=non_cov_table,
+            #                                  fields=fields)
+
+            run.log({"cov_chart": cov_table})
+            run.log({"non_cov_chart": non_cov_table})

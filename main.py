@@ -10,10 +10,10 @@ from classifier import Classifier
 from utils import abs_path, check_folder
 import joblib
 
-from wandb_utils import ArtifactMng
+from wandb_utils import WandbUtils
 
 # Upload artifacts
-ArtifactMng.log_raw_images_data()
+WandbUtils.log_raw_images_artifacts()
 
 # Read data
 #cf = Classifier(input_file='characteristics.csv')
