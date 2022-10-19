@@ -34,3 +34,5 @@ class HistogramChart:
 
         # Log custom tables, which will show up in customizable charts in the UI
         wandb.log({'line_' + str(i+1): plots[i] for i in range(0, len(plots))})
+        
+        print(0.1 * 0.1)

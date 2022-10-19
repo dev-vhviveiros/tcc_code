@@ -13,7 +13,7 @@ import joblib
 from wandb_utils import WandbUtils
 
 # Upload artifacts
-WandbUtils.log_raw_images_artifacts()
+WandbUtils.log_interactive_table()
 
 # Read data
 #cf = Classifier(input_file='characteristics.csv')
