@@ -15,8 +15,10 @@ def check_folder(folder, remove_previous=True):
 def abs_path(path, *paths):
     return os.path.join(path, *paths)
 
+def dataset_path():
+    return abs_path('dataset')
 
-def covid_path():
+def cov_path():
     return abs_path('dataset/covid')
 
 
@@ -24,7 +26,7 @@ def covid_masks_path():
     return abs_path('cov_masks')
 
 
-def non_covid_path():
+def non_cov_path():
     return abs_path('dataset/normal')
 
 
@@ -44,19 +46,19 @@ def model_path():
     return abs_path('model.h5')
 
 
-def covid_images():
-    return glob(covid_path() + "/*g")
+def cov_images():
+    return glob(cov_path() + "/*g")
 
 
-def non_covid_images():
-    return glob(non_covid_path() + "/*g")
+def non_cov_images():
+    return glob(non_cov_path() + "/*g")
 
 
-def covid_masks():
+def cov_masks():
     return glob(covid_masks_path() + "/*g")
 
 
-def non_covid_masks():
+def non_cov_masks():
     return glob(non_covid_masks_path() + "/*g")
 
 

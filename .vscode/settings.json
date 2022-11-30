@@ -1,6 +1,11 @@
 {
     "cSpell.words": [
+        "prange",
         "sess",
         "vhviveiros"
-    ]
+    ],
+    "python.linting.banditEnabled": false,
+    "python.linting.pylintEnabled": true,
+    "python.linting.enabled": false,
+    "python.analysis.typeCheckingMode": "off"
 }

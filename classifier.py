@@ -133,8 +133,8 @@ class Classifier:
             "loss": loss
         }
 
-        with(wandb.init(project="tcc", job_type="model_fit", magic=True, name="fit__" + date_time,
-                        config=wb_config)) as run:
+        with (wandb.init(project="tcc", job_type="model_fit", magic=True, name="fit__" + date_time,
+                         config=wb_config)) as run:
             generated_dataset = wandb.Artifact(
                 "characteristics", type="dataset")
             generated_dataset.add_file(
@@ -152,8 +152,8 @@ class Classifier:
                            validation_data=(self.X_test, self.y_test), callbacks=[TrainingPlot(epochs), WandbCallback(data_type="histogram")])
             if export_dir is not None:
                 self.__export_model(export_dir, date_time)
-            
-            run.log_artifact(WandbUtils.generate_model_artifact())
+
+            run.log_artifact(WandbUtils.__generate_model_artifact())
             print("\nExporting model...\n")
 
     def __export_model(self, save_dir, date_time):
@@ -170,7 +170,7 @@ class Classifier:
     def __confusion_matrix(self):
         pred = self.model.predict_classes(self.X_test)
         matrix = confusion_matrix(pred, self.y_test)
-        return(matrix)
+        return (matrix)
 
     def plot_confusion_matrix(self,
                               title='Confusion matrix',

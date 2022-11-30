@@ -2,7 +2,6 @@ import cv2
 import numpy as np
 from concurrent.futures.thread import ThreadPoolExecutor
 from sklearn.model_selection import train_test_split
-import wandb
 from models import unet_model
 from tqdm import tqdm
 from numba import prange, njit
@@ -79,37 +78,37 @@ class ImageGenerator:
                 yield Image(image_file, divide, reshape)
 
     def generate_preprocessing_data(self,
-                                    covid_path,
-                                    covid_masks_path,
-                                    non_covid_path,
-                                    non_covid_masks_path):
+                                    cov_path,
+                                    cov_masks_path,
+                                    non_cov_path,
+                                    non_cov_masks_path):
         with ThreadPoolExecutor() as executor:
-            covid_images = executor.submit(self.generate_from, covid_path)
-            covid_masks = executor.submit(self.generate_from, covid_masks_path)
+            cov_images = executor.submit(self.generate_from, cov_path)
+            cov_masks = executor.submit(self.generate_from, cov_masks_path)
 
-            non_covid_images = executor.submit(
-                self.generate_from, non_covid_path)
-            non_covid_masks = executor.submit(
-                self.generate_from, non_covid_masks_path)
+            non_cov_images = executor.submit(
+                self.generate_from, non_cov_path)
+            non_cov_masks = executor.submit(
+                self.generate_from, non_cov_masks_path)
 
-            return [covid_images, covid_masks, non_covid_images, non_covid_masks]
+            return [cov_images, cov_masks, non_cov_images, non_cov_masks]
 
-    def generate_classificator_data(self, covid_path, non_covid_path, divide=True, reshape=False):
+    def generate_classificator_data(self, cov_path, non_cov_path, divide=True, reshape=False):
         with ThreadPoolExecutor() as executor:
-            covid_images = executor.submit(
-                self.generate_from, covid_path, divide, reshape, True)
+            cov_images = executor.submit(
+                self.generate_from, cov_path, divide, reshape, True)
 
-            non_covid_images = executor.submit(
-                self.generate_from, non_covid_path, divide, reshape, True)
+            non_cov_images = executor.submit(
+                self.generate_from, non_cov_path, divide, reshape, True)
 
-            covid_images = list(covid_images.result())
-            non_covid_images = list(non_covid_images.result())
+            cov_images = list(cov_images.result())
+            non_cov_images = list(non_cov_images.result())
 
-            entries = np.concatenate((covid_images, non_covid_images))
+            entries = np.concatenate((cov_images, non_cov_images))
             entries = np.repeat(entries[..., np.newaxis], 3, -1)
 
-            cov_len = len(covid_images)
-            non_cov_len = len(non_covid_images)
+            cov_len = len(cov_images)
+            non_cov_len = len(non_cov_images)
             results_len = cov_len + non_cov_len
             results = np.zeros((results_len))
 
@@ -119,14 +118,14 @@ class ImageGenerator:
             return train_test_split(
                 entries, results, test_size=0.2, random_state=0)
 
-    def generate_processed_data(self, covid_processed_path, non_covid_processed_path, divide=True, reshape=False):
+    def generate_processed_data(self, cov_processed_path, non_cov_processed_path, divide=True, reshape=False):
         with ThreadPoolExecutor() as executor:
-            covid_images = executor.submit(
-                self.generate_from, covid_processed_path)
-            non_covid_images = executor.submit(
-                self.generate_from, non_covid_processed_path)
+            cov_images = executor.submit(
+                self.generate_from, cov_processed_path)
+            non_cov_images = executor.submit(
+                self.generate_from, non_cov_processed_path)
 
-            return [covid_images, non_covid_images]
+            return [cov_images, non_cov_images]
 
 
 class ImageSaver:
