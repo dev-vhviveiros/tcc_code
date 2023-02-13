@@ -15,8 +15,10 @@ def check_folder(folder, remove_previous=True):
 def abs_path(path, *paths):
     return os.path.join(path, *paths)
 
+
 def dataset_path():
     return abs_path('dataset')
+
 
 def cov_path():
     return abs_path('dataset/covid')

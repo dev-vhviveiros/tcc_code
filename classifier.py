@@ -29,6 +29,10 @@ class Classifier:
             self.__import_model(import_model)
 
     def load_dataset(self, file, test_size=0.2):
+        """This code is used to load a dataset from a csv file and split it into test and training sets. It also normalizes the data. 
+                The function takes two parameters: 'file' which is the path to the csv file, and 'test_size' which is the size of the test set as a proportion of the total dataset. 
+                The function reads in the csv file using pandas, then splits it into entries and results. The entries are split into X_train and X_test, while results are split into y_train and y_test. 
+                Finally, the data is normalized using StandardScaler()."""
         # Read csv
         ctcs = pd.read_csv(file)
         entries = ctcs.iloc[:, 1:269].values
@@ -44,6 +48,7 @@ class Classifier:
         self.X_test = sc.transform(X_test)
 
     def log_artifacts(self):
+        """This code uses the Wandb library to log artifacts. It initializes a run with a project name of "tcc" and job type of "load-artifacts". It creates two datasets, training_set and test_set, from self.X_train, self.y_train, self.X_test, and self.y_test. It then creates an artifact called covid_dataset with type dataset and description "Raw covid dataset, split into train/test". The metadata for this artifact includes the sizes of the training set and test set datasets. Finally, it logs the artifact and finishes the run."""
         with wandb.init(project="tcc", job_type="load-artifacts") as run:
             training_set = [self.X_train, self.y_train]
             test_set = [self.X_test, self.y_test]
@@ -58,6 +63,8 @@ class Classifier:
             wandb.finish()
 
     def __format_validation(self, grid_cv):
+        """This function takes in a grid_cv object as an argument and returns a dictionary containing the best results of the cross-validation for each metric. 
+                The key_filter function filters out the keys in grid_cv.cv_results_ that start with 'split' and contain the name of a metric, then the dictionary is created by looping through each metric and adding its best result to the dictionary."""
         def key_filter(key):
             return list(filter(lambda x: x.startswith('split') and x.__contains__(key), grid_cv.cv_results_))
 
@@ -66,17 +73,20 @@ class Classifier:
 
     @staticmethod
     def custom_specificity(y_true, y_pred):
-        tn, fp, fn, tp = confusion_matrix(
+        """This code defines a function called custom_specificity that takes two parameters, y_true and y_pred. It then uses the confusion_matrix function to calculate the true negative (tn) and false positive (fp) values for the given labels of 0 and 1. Finally, it returns the ratio of true negatives to the sum of true negatives and false positives. This ratio is known as specificity, which measures how well a model can distinguish between classes."""
+        tn, fp, _, _ = confusion_matrix(
             y_true, y_pred, labels=[0, 1]).ravel()
         return (tn / (tn + fp))
 
     @staticmethod
     def custom_sensitivity(y_true, y_pred):
-        tn, fp, fn, tp = confusion_matrix(
+        """This code defines a function called custom_sensitivity, which takes two parameters, y_true and y_pred. It then uses the confusion_matrix function to calculate the false negatives (fn) and true positives (tp). Finally, it returns the ratio of true positives to the sum of true positives and false negatives. This ratio is a measure of sensitivity, which is the ability of a model to correctly identify positive cases."""
+        _, _, fn, tp = confusion_matrix(
             y_true, y_pred, labels=[0, 1]).ravel()
         return (tp / (tp + fn))
 
     def validation(self, n_jobs=-2, cv=10, batch_size=-1, epochs=-1, units=-1, optimizer=['adam'], activation=['relu'], activation_output=['sigmoid'], loss=['binary_crossentropy'], save_path=None):
+        """This code is a function that uses the KerasClassifier class to perform a grid search using cross-validation (cv) and the given parameters. The parameters include batch size, epochs, units, optimizer, activation, activation output, and loss. The metrics used for scoring are accuracy, precision, f1_score, sensitivity, and specificity. The learning rate is set to 0.001 and WandbCallback is used as a callback for the grid search. If the save_path parameter is not None and both batch size and epochs have been specified, then the validation results are saved to the given path. Finally, the grid search results are returned."""
 
         classifier = KerasClassifier(build_fn=classifier_model)
 
@@ -118,10 +128,12 @@ class Classifier:
         return grid_search
 
     def __save_validation(self, grid_search, save_path):
+        """This function saves the results of a grid search validation. It takes two parameters, the grid search object and the save path. It formats the results of the grid search into a dataframe and then saves it to a csv file at the specified save path."""
         result_set = self.__format_validation(grid_search)
         pd.DataFrame(result_set).to_csv(save_path)
 
     def fit(self, logs_folder, export_dir=None, batch_size=16, epochs=300, units=180, optimizer='sgd', activation='relu', activation_output='sigmoid', loss='binary_crossentropy'):
+        """This code is used to fit a classifier model with the given parameters. It initializes a run on Weights & Biases (Wandb) and logs the dataset generated for the model. It then creates a classifier model using the given parameters and fits it to the training data. The TrainingPlot and WandbCallback callbacks are used for visualizing the training process. Finally, if an export directory is provided, it exports the model to that directory and logs an artifact of the model on Wandb."""
         date_time = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
         wb_config = {
             "epochs": epochs,
@@ -157,17 +169,30 @@ class Classifier:
             print("\nExporting model...\n")
 
     def __export_model(self, save_dir, date_time):
+        """This code is a function that exports a model. It takes two parameters: save_dir (the directory where the model should be saved) and date_time (the current date and time). 
+The first line calls the check_folder() function to check if the save_dir exists, and creates it if it does not. 
+The second line saves the model in the save_dir directory with the name "model.h5"."""
         check_folder(save_dir, False)
         #self.model.save(save_dir + 'save_' + date_time + '.h5')
         self.model.save(save_dir + 'model.h5')
 
     def __import_model(self, model_dir, optimizer='sgd', activation='relu', activation_output='sigmoid', loss='binary_crossentropy', units=180):
+        """This function creates a classifier model with the given parameters and loads the weights from the given directory. 
+Parameters: 
+model_dir (string): The directory of the model weights to be loaded 
+optimizer (string): The optimizer algorithm used for training 
+activation (string): The activation function used in the model 
+activation_output (string): The activation function used for the output layer 
+loss (string): The loss function used for training 
+units (integer): Number of units in the hidden layers 
+Returns: self.model (object)"""
         self.model = classifier_model(optimizer, activation, activation_output, units,
                                       ['accuracy', Precision(), AUC(), Recall()], loss)
         self.model.load_weights(model_dir)
         return self.model
 
     def __confusion_matrix(self):
+        """This code uses the model attribute from the instance to predict classes from the X_test attribute of the instance. It then uses the confusion_matrix function to compare the predicted classes with the y_test attribute of the instance and returns the matrix."""
         pred = self.model.predict_classes(self.X_test)
         matrix = confusion_matrix(pred, self.y_test)
         return (matrix)
@@ -255,6 +280,7 @@ class Classifier:
         plt.show()
 
     def predict(self, x):
+        """This code defines a function called "predict" that takes in an argument "x" and returns the predicted classes of the given input. The function prints the predicted classes and then returns them. The prediction is done using the "model" attribute of the class."""
         pred = self.model.predict_classes(x)
         print(pred)
         return pred
