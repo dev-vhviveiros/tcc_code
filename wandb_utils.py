@@ -1,24 +1,24 @@
 import numpy as np
 import wandb
-import os
 from image import Image, ImageGenerator
 from utils import abs_path, dataset_path, model_path, cov_processed_path, non_cov_processed_path
 from utils import cov_processed, cov_images, cov_masks
 from utils import non_cov_processed, non_cov_images, non_cov_masks
-
+from vhviv_tools.json import json
 
 class WandbUtils:
-    job_upload_dataset = "upload_dataset"
-    job_log_table = "log_interactive_table"
-    job_histogram_chart = "log_histogram_chart"
-    job_load_artifacts = "load_artifacts"
-    artifact_dataset_tag = "dataset"
-    artifact_model_tag = "model"
-
-    def __init__(self, wdb_data_alias, project_owner="vhviveiros", project_name="tcc"):
+    def __init__(self, wdb_data_alias):
+        config = json("config.json")["wandb"]
+        self.job_upload_dataset = config["wb_job_upload_dataset"]
+        self.job_log_table = config["wb_job_log_table"]
+        self.job_histogram_chart = config["wb_job_histogram_chart"]
+        self.job_load_artifacts = config["wb_job_load_artifacts"]
+        self.artifact_dataset_tag = config["wb_artifact_dataset_tag"]
+        self.artifact_model_tag = config["wb_artifact_model_tag"]
+        self.project_owner = config["wb_project_owner"]
+        self.project_name = config["wb_project_name"]
+        self.project_path = config["wb_project_path"]
         self.wdb_data_alias = wdb_data_alias
-        self.project_path = project_owner + "/" + project_name
-        self.project_name = project_name
 
     def execute_with(self, callback, job_type):
         """This code takes two parameters, self and callback. It then initializes a run with the project name and job type specified in the parameters. The callback function is then called with the run as an argument. Finally, it prints a message indicating that the job is done."""

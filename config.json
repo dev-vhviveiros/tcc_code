@@ -1,0 +1,23 @@
+{
+  "wandb": {
+    "wb_job_upload_dataset": "upload_dataset",
+    "wb_job_log_table": "log_interactive_table",
+    "wb_job_histogram_chart": "log_histogram_chart",
+    "wb_job_load_artifacts": "load_artifacts",
+    "wb_artifact_dataset_tag": "dataset",
+    "wb_artifact_model_tag": "model",
+    "wb_project_owner": "vhviveiros",
+    "wb_project_name": "tcc",
+    "wb_project_path": "vhviveiros/tcc"
+  },
+  "datasets": {
+    "raw_datasets_path": "dataset",
+    "raw_covid_dataset_path": "dataset/covid",
+    "raw_normal_path": "dataset/normal",
+    "covid_masks_path": "cov_masks",
+    "normal_masks_path": "non_cov_masks",
+    "covid_processed_path": "cov_processed",
+    "normal_processed_path": "non_cov_processed",
+    "model_path": "model.h5"
+  }
+}
