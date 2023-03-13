@@ -1,7 +1,5 @@
-from unicodedata import name
 import wandb
 from wandb.keras import WandbCallback
-import tensorflow as tf
 import pandas as pd
 import datetime
 from tensorflow.keras.metrics import AUC, Recall, Precision
@@ -10,7 +8,7 @@ from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import confusion_matrix, make_scorer, f1_score
 from models import classifier_model
-from utils import check_folder
+from utils import WB_ARTIFACT_COVID_DATASET_TAG, WB_ARTIFACT_DATASET_TAG, WB_JOB_LOAD_ARTIFACTS, WB_JOB_MODEL_FIT, check_folder, load_config, model_path
 from training_plot import TrainingPlot
 from wandb_utils import WandbUtils
 
@@ -23,6 +21,7 @@ class Classifier:
     """
 
     def __init__(self, input_file=None, import_model=None):
+        self.project_name = load_config("wb_project_name")
         if input_file is not None:
             self.load_dataset(input_file)
         if import_model is not None:
@@ -49,12 +48,12 @@ class Classifier:
 
     def log_artifacts(self):
         """This code uses the Wandb library to log artifacts. It initializes a run with a project name of "tcc" and job type of "load-artifacts". It creates two datasets, training_set and test_set, from self.X_train, self.y_train, self.X_test, and self.y_test. It then creates an artifact called covid_dataset with type dataset and description "Raw covid dataset, split into train/test". The metadata for this artifact includes the sizes of the training set and test set datasets. Finally, it logs the artifact and finishes the run."""
-        with wandb.init(project="tcc", job_type="load-artifacts") as run:
+        with wandb.init(project=self.project_name, job_type=WB_JOB_LOAD_ARTIFACTS) as run:
             training_set = [self.X_train, self.y_train]
             test_set = [self.X_test, self.y_test]
 
             raw_data = wandb.Artifact(
-                "covid_dataset", type="dataset",
+                WB_ARTIFACT_COVID_DATASET_TAG, type=WB_ARTIFACT_DATASET_TAG,
                 description="Raw covid dataset, split into train/test",
                 metadata={"sizes": [len(dataset) for dataset in [training_set, test_set]]})
 
@@ -132,7 +131,7 @@ class Classifier:
         result_set = self.__format_validation(grid_search)
         pd.DataFrame(result_set).to_csv(save_path)
 
-    def fit(self, logs_folder, export_dir=None, batch_size=16, epochs=300, units=180, optimizer='sgd', activation='relu', activation_output='sigmoid', loss='binary_crossentropy'):
+    def fit(self, logs_folder, export_model=True, batch_size=16, epochs=300, units=180, optimizer='sgd', activation='relu', activation_output='sigmoid', loss='binary_crossentropy'):
         """This code is used to fit a classifier model with the given parameters. It initializes a run on Weights & Biases (Wandb) and logs the dataset generated for the model. It then creates a classifier model using the given parameters and fits it to the training data. The TrainingPlot and WandbCallback callbacks are used for visualizing the training process. Finally, if an export directory is provided, it exports the model to that directory and logs an artifact of the model on Wandb."""
         date_time = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
         wb_config = {
@@ -145,10 +144,10 @@ class Classifier:
             "loss": loss
         }
 
-        with (wandb.init(project="tcc", job_type="model_fit", magic=True, name="fit__" + date_time,
+        with (wandb.init(project=self.project_name, job_type=WB_JOB_MODEL_FIT, magic=True, name="fit__" + date_time,
                          config=wb_config)) as run:
             generated_dataset = wandb.Artifact(
-                "characteristics", type="dataset")
+                "characteristics", type=WB_ARTIFACT_DATASET_TAG)
             generated_dataset.add_file(
                 "characteristics.csv")
             run.log_artifact(generated_dataset)
@@ -162,19 +161,19 @@ class Classifier:
                                           ['accuracy', Precision(), AUC(), Recall()], loss)
             self.model.fit(self.X_train, self.y_train, batch_size=batch_size, epochs=epochs, verbose=1, workers=12, use_multiprocessing=True,
                            validation_data=(self.X_test, self.y_test), callbacks=[TrainingPlot(epochs), WandbCallback(data_type="histogram")])
-            if export_dir is not None:
-                self.__export_model(export_dir, date_time)
+            if export_model:
+                self.__export_model()
 
             run.log_artifact(WandbUtils.__generate_model_artifact())
             print("\nExporting model...\n")
 
-    def __export_model(self, save_dir, date_time):
+    def __export_model(self):
         """This code is a function that exports a model. It takes two parameters: save_dir (the directory where the model should be saved) and date_time (the current date and time). 
 The first line calls the check_folder() function to check if the save_dir exists, and creates it if it does not. 
 The second line saves the model in the save_dir directory with the name "model.h5"."""
-        check_folder(save_dir, False)
+        check_folder(model_path(), False)
         #self.model.save(save_dir + 'save_' + date_time + '.h5')
-        self.model.save(save_dir + 'model.h5')
+        self.model.save(model_path())
 
     def __import_model(self, model_dir, optimizer='sgd', activation='relu', activation_output='sigmoid', loss='binary_crossentropy', units=180):
         """This function creates a classifier model with the given parameters and loads the weights from the given directory. 

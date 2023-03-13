@@ -3,16 +3,33 @@ import os
 from shutil import rmtree
 from vhviv_tools.json import json
 
+# Project variables (just to avoid repeating/misspelling them)
+# JOB VARIABLES:
+WB_JOB_UPLOAD_DATASET = "upload_dataset"
+WB_JOB_LOG_TABLE = "log_interactive_table"
+WB_JOB_HISTOGRAM_CHART = "log_histogram_chart"
+WB_JOB_LOAD_ARTIFACTS = "load_artifacts"
+WB_JOB_MODEL_FIT = "model_fit"
+# TAG VARIABLES:
+WB_ARTIFACT_DATASET_TAG = "dataset"
+WB_ARTIFACT_COVID_DATASET_TAG = "covid_dataset"
+WB_ARTIFACT_MODEL_TAG = "model"
+
+
+def load_config(key: str) -> str:
+    """This function loads the configuration from the JSON file called and returns the value associated with the key argument."""
+    return json("config.json")[key]
+
 
 def __get_dataset_path(value: str) -> str:
     """The function reads the "config.json" file and returns the path for the specified dataset from the "datasets" key in the config file."""
     config = json("config.json")
-    return config["datasets"][value]
+    return load_config(WB_ARTIFACT_DATASET_TAG)[value]
 
 
 def check_folder(folder, remove_previous=True):
     """This function checks if a folder exists and creates it if it does not. If the folder already exists, then the function will remove the previous folder and create a new one if the remove_previous argument is set to True (which is its default value).
-    
+
     Parameters: 
     folder (str): The path of the folder to check/create. 
     remove_previous (bool): A boolean value indicating whether to remove the previous folder if it already exists. Defaults to True. """

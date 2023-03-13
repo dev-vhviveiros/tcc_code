@@ -2,7 +2,7 @@ from ast import alias
 import numpy as np
 import wandb
 from image import Image, ImageGenerator
-from utils import abs_path, dataset_path, model_path, cov_processed_path, non_cov_processed_path
+from utils import WB_ARTIFACT_DATASET_TAG, WB_ARTIFACT_MODEL_TAG, WB_JOB_HISTOGRAM_CHART, WB_JOB_LOG_TABLE, WB_JOB_UPLOAD_DATASET, abs_path, dataset_path, model_path, cov_processed_path, non_cov_processed_path
 from utils import cov_processed, cov_images, cov_masks
 from utils import non_cov_processed, non_cov_images, non_cov_masks
 from vhviv_tools.json import json
@@ -11,12 +11,6 @@ from vhviv_tools.json import json
 class WandbUtils:
     def __init__(self, wdb_data_alias):
         config = json("config.json")["wandb"]
-        self.job_upload_dataset = config["wb_job_upload_dataset"]
-        self.job_log_table = config["wb_job_log_table"]
-        self.job_histogram_chart = config["wb_job_histogram_chart"]
-        self.job_load_artifacts = config["wb_job_load_artifacts"]
-        self.artifact_dataset_tag = config["wb_artifact_dataset_tag"]
-        self.artifact_model_tag = config["wb_artifact_model_tag"]
         self.project_owner = config["wb_project_owner"]
         self.project_name = config["wb_project_name"]
         self.project_path = config["wb_project_path"]
@@ -71,7 +65,7 @@ class WandbUtils:
             self.__create_wandb_table(non_cov_images(), non_cov_masks(), non_cov_processed(), "non-covid")
             run.finish()
 
-        self.execute_with(callback, self.job_log_table)
+        self.execute_with(callback, WB_JOB_LOG_TABLE)
 
     def log_histogram_chart_comparison(self):
         """This function creates a log of histogram chart comparison. It first creates two image generators from cov_processed_path and non_cov_processed_path. Then it creates two histogram data sets from the generated images, cov_hist_data and non_cov_hist_data. The data is then converted to a list of tuples and stored in cov_table and non_cov_table. Finally, the tables are logged in the run."""
@@ -102,16 +96,16 @@ class WandbUtils:
 
             run.log({"cov_chart": cov_table})
             run.log({"non_cov_chart": non_cov_table})
-        self.execute_with(callback, self.job_histogram_chart)
+        self.execute_with(callback, WB_JOB_HISTOGRAM_CHART)
 
     def upload_dataset_artifact(self, alias=""):
         """This function uploads a dataset artifact to W&B. It takes in an optional alias parameter. The callback function creates a wandb.Artifact object with the tag "artifact_dataset_tag" and type "dataset". It then adds the directory at the path "dataset_path" to the artifact and logs it with the given alias. Finally, it executes the job "job_upload_dataset" with the callback function."""
         def callback(run):
-            raw_data = wandb.Artifact(self.artifact_dataset_tag, type="dataset")
-            raw_data.add_dir(dataset_path(), "dataset")
+            raw_data = wandb.Artifact(WB_ARTIFACT_DATASET_TAG, type=WB_ARTIFACT_DATASET_TAG)
+            raw_data.add_dir(dataset_path(), WB_ARTIFACT_DATASET_TAG)
             run.log_artifact(raw_data, aliases=[alias])
 
-        self.execute_with(callback, self.job_upload_dataset)
+        self.execute_with(callback, WB_JOB_UPLOAD_DATASET)
 
     def download_artifact(self, name, relative_path, alias='latest'):
         """This function downloads an artifact from the W&B API. 
@@ -128,29 +122,29 @@ class WandbUtils:
 
     def load_dataset(self, run):
         """This code is used to load a dataset from a project path. It takes in the parameter "run" and creates an artifact_wdb_path string using the project path, artifact dataset tag, and wdb data alias. It then uses the run parameter to use the artifact_wdb_path as an artifact with a type of the artifact dataset tag. Finally, it downloads the dataset from the artifact and returns it as a list."""
-        artifact_wdb_path = '%s/%s:%s' % (self.project_path, self.artifact_dataset_tag, self.wdb_alias)
-        dataset_artifact = run.use_artifact(artifact_wdb_path, type=self.artifact_dataset_tag)
+        artifact_wdb_path = '%s/%s:%s' % (self.project_path, WB_ARTIFACT_DATASET_TAG, self.wdb_alias)
+        dataset_artifact = run.use_artifact(artifact_wdb_path, type=WB_ARTIFACT_DATASET_TAG)
         dataset_dir = dataset_artifact.download()
 
         return [dataset_dir]
 
     def get_wb_model_artifact_path(self) -> str:
         """This function gets the path of a model artifact from the project. The function returns a string in the format 'project_path/artifact_model_tag:wdb_data_alias'."""
-        return '%s/%s:%s' % (self.project_path, self.artifact_model_tag, self.wdb_alias)
+        return '%s/%s:%s' % (self.project_path, WB_ARTIFACT_MODEL_TAG, self.wdb_alias)
 
     def load_model_artifact(self, run):
         """This function loads a model from a run in W&B. 
         It takes in a parameter 'run' which is the run from which the model should be loaded. 
         The function first uses the W&B artifact associated with the run to download the model. It then returns the directory of the model."""
         artifact_wdb_path = self.get_wb_model_artifact_path()
-        dataset_artifact = run.use_artifact(artifact_wdb_path, type=self.artifact_model_tag)
+        dataset_artifact = run.use_artifact(artifact_wdb_path, type=WB_ARTIFACT_MODEL_TAG)
         model_dir = dataset_artifact.download()
 
         return model_dir
 
     def generate_model_artifact(self):
         """This code defines a function called generate_model_artifact that takes in an object of the class it is defined in as a parameter. The function creates an artifact object from the Wandb library, with the tag given by the self.artifact_model_tag parameter and type set to "model". It then adds a file located at model_path to the artifact and returns it."""
-        model = wandb.Artifact(self.artifact_model_tag, type=self.artifact_model_tag)
+        model = wandb.Artifact(WB_ARTIFACT_MODEL_TAG, type=WB_ARTIFACT_MODEL_TAG)
         model.add_file(model_path())
         return model
 
