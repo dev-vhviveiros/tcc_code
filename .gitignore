@@ -129,3 +129,4 @@ wandb/
 
 test*
 dataset/
+*.h5

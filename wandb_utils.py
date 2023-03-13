@@ -1,3 +1,4 @@
+from ast import alias
 import numpy as np
 import wandb
 from image import Image, ImageGenerator
@@ -5,6 +6,7 @@ from utils import abs_path, dataset_path, model_path, cov_processed_path, non_co
 from utils import cov_processed, cov_images, cov_masks
 from utils import non_cov_processed, non_cov_images, non_cov_masks
 from vhviv_tools.json import json
+
 
 class WandbUtils:
     def __init__(self, wdb_data_alias):
@@ -18,14 +20,14 @@ class WandbUtils:
         self.project_owner = config["wb_project_owner"]
         self.project_name = config["wb_project_name"]
         self.project_path = config["wb_project_path"]
-        self.wdb_data_alias = wdb_data_alias
+        self.wdb_alias = wdb_data_alias
 
     def execute_with(self, callback, job_type):
         """This code takes two parameters, self and callback. It then initializes a run with the project name and job type specified in the parameters. The callback function is then called with the run as an argument. Finally, it prints a message indicating that the job is done."""
         with (wandb.init(project=self.project_name, job_type=job_type)) as run:
             callback(run)
 
-        print("Job: <" + job_type + "> done!")
+        print("JOB: <" + job_type + "> DONE!")
 
     def __create_wandb_table(self, images, masks, processed, tag):
         """This function creates a wandb table. It takes four parameters: images, masks, processed, and tag. The number of images, masks, and processed images must be the same or an exception is raised.
@@ -102,12 +104,6 @@ class WandbUtils:
             run.log({"non_cov_chart": non_cov_table})
         self.execute_with(callback, self.job_histogram_chart)
 
-    def generate_model_artifact(self):
-        """This code defines a function called generate_model_artifact that takes in an object of the class it is defined in as a parameter. The function creates an artifact object from the Wandb library, with the tag given by the self.artifact_model_tag parameter and type set to "model". It then adds a file located at model_path to the artifact and returns it."""
-        model = wandb.Artifact(self.artifact_model_tag, type="model")
-        model.add_file(model_path, "model.h5")
-        return model
-
     def upload_dataset_artifact(self, alias=""):
         """This function uploads a dataset artifact to W&B. It takes in an optional alias parameter. The callback function creates a wandb.Artifact object with the tag "artifact_dataset_tag" and type "dataset". It then adds the directory at the path "dataset_path" to the artifact and logs it with the given alias. Finally, it executes the job "job_upload_dataset" with the callback function."""
         def callback(run):
@@ -132,20 +128,35 @@ class WandbUtils:
 
     def load_dataset(self, run):
         """This code is used to load a dataset from a project path. It takes in the parameter "run" and creates an artifact_wdb_path string using the project path, artifact dataset tag, and wdb data alias. It then uses the run parameter to use the artifact_wdb_path as an artifact with a type of the artifact dataset tag. Finally, it downloads the dataset from the artifact and returns it as a list."""
-        artifact_wdb_path = '%s/%s:%s' % (self.project_path, self.artifact_dataset_tag, self.wdb_data_alias)
+        artifact_wdb_path = '%s/%s:%s' % (self.project_path, self.artifact_dataset_tag, self.wdb_alias)
         dataset_artifact = run.use_artifact(artifact_wdb_path, type=self.artifact_dataset_tag)
         dataset_dir = dataset_artifact.download()
 
         return [dataset_dir]
 
-    def load_model(self, run):
-        """This function is used to load a model from a project path, tag, and alias. It takes in the argument 'run', which is an object containing information about the run. It then creates a path to the artifact model using the project path, tag, and alias. It then creates a dataset artifact using this path and type of artifact model tag. Finally, it downloads the model from this dataset artifact and returns it."""
-        artifact_wdb_path = '%s/%s:%s' % (self.project_path, self.artifact_model_tag, self.wdb_data_alias)
+    def get_wb_model_artifact_path(self) -> str:
+        """This function gets the path of a model artifact from the project. The function returns a string in the format 'project_path/artifact_model_tag:wdb_data_alias'."""
+        return '%s/%s:%s' % (self.project_path, self.artifact_model_tag, self.wdb_alias)
+
+    def load_model_artifact(self, run):
+        """This function loads a model from a run in W&B. 
+        It takes in a parameter 'run' which is the run from which the model should be loaded. 
+        The function first uses the W&B artifact associated with the run to download the model. It then returns the directory of the model."""
+        artifact_wdb_path = self.get_wb_model_artifact_path()
         dataset_artifact = run.use_artifact(artifact_wdb_path, type=self.artifact_model_tag)
         model_dir = dataset_artifact.download()
 
         return model_dir
 
-    def upload_model(self, run):
-        #TODO
-        return
+    def generate_model_artifact(self):
+        """This code defines a function called generate_model_artifact that takes in an object of the class it is defined in as a parameter. The function creates an artifact object from the Wandb library, with the tag given by the self.artifact_model_tag parameter and type set to "model". It then adds a file located at model_path to the artifact and returns it."""
+        model = wandb.Artifact(self.artifact_model_tag, type=self.artifact_model_tag)
+        model.add_file(model_path())
+        return model
+
+    def upload_model_artifact(self, run):
+        """This function uploads a model from a run in W&B. 
+        It takes in a parameter 'run' which is the run from which the model should be uploaded. 
+        The function first uses the W&B artifact associated with the run to upload the model. It then returns the directory of the model."""
+        model_artifact = self.generate_model_artifact()
+        run.log_artifact(model_artifact, aliases=[self.wdb_alias])
