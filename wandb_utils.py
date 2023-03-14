@@ -3,7 +3,7 @@ from typing import List
 import numpy as np
 import wandb
 from image import Image, ImageGenerator
-from utils import WB_ARTIFACT_COVID_TAG, WB_ARTIFACT_DATASET_TAG, WB_ARTIFACT_MODEL_TAG, WB_ARTIFACT_NORMAL_TAG, WB_JOB_HISTOGRAM_CHART, WB_JOB_LOAD_DATASET, WB_JOB_LOG_TABLE, WB_JOB_UPLOAD_DATASET, abs_path, cov_path, dataset_path, model_path, cov_processed_path, normal_path, normal_processed_path
+from utils import WB_ARTIFACT_COVID_PROCESSED_TAG, WB_ARTIFACT_COVID_TAG, WB_ARTIFACT_COVID_MASKS_TAG, WB_ARTIFACT_DATASET_TAG, WB_ARTIFACT_MODEL_TAG, WB_ARTIFACT_NORMAL_MASKS_TAG, WB_ARTIFACT_NORMAL_PROCESSED_TAG, WB_ARTIFACT_NORMAL_TAG, WB_JOB_HISTOGRAM_CHART, WB_JOB_LOAD_DATASET, WB_JOB_LOG_TABLE, WB_JOB_UPLOAD_DATASET, abs_path, cov_path, covid_masks_path, dataset_path, model_path, cov_processed_path, normal_masks_path, normal_path, normal_processed_path
 from utils import cov_processed, cov_images, cov_masks
 from utils import normal_processed, normal_images, normal_masks
 from vhviv_tools.json import json
@@ -135,9 +135,25 @@ class WandbUtils:
         """This function uploads a COVID dataset artifact to the WDB and returns the result of the upload_dataset_artifact() function. Aliases params are only intended for extra tagging, so theyre not required."""
         return self.upload_dataset_artifact(WB_ARTIFACT_COVID_TAG, WB_JOB_UPLOAD_DATASET, cov_path(), [self.wdb_alias, WB_ARTIFACT_COVID_TAG] + aliases)
 
-    def upload_normal_dataset_artifact(self, aliases = []):
+    def upload_covid_masks_dataset_artifact(self, aliases=[]):
+        """This function uploads a COVID MASKS dataset artifact to the WDB and returns the result of the upload_dataset_artifact() function. Aliases params are only intended for extra tagging, so theyre not required."""
+        return self.upload_dataset_artifact(WB_ARTIFACT_COVID_MASKS_TAG, WB_JOB_UPLOAD_DATASET, covid_masks_path(), [self.wdb_alias, WB_ARTIFACT_COVID_MASKS_TAG] + aliases)
+
+    def upload_covid_processed_dataset_artifact(self, aliases=[]):
+        """This function uploads a COVID PROCESSED dataset artifact to the WDB and returns the result of the upload_dataset_artifact() function. Aliases params are only intended for extra tagging, so theyre not required."""
+        return self.upload_dataset_artifact(WB_ARTIFACT_COVID_PROCESSED_TAG, WB_JOB_UPLOAD_DATASET, cov_processed_path(), [self.wdb_alias, WB_ARTIFACT_COVID_PROCESSED_TAG] + aliases)
+
+    def upload_normal_dataset_artifact(self, aliases=[]):
         """This function uploads a NORMAL dataset artifact to the WDB and returns the result of the upload_dataset_artifact() function. Aliases params are only intended for extra tagging, so theyre not required."""
         return self.upload_dataset_artifact(WB_ARTIFACT_NORMAL_TAG, WB_JOB_UPLOAD_DATASET, normal_path(), [self.wdb_alias, WB_ARTIFACT_NORMAL_TAG] + aliases)
+
+    def upload_normal_masks_dataset_artifact(self, aliases=[]):
+        """This function uploads a NORMAL MASKS dataset artifact to the WDB and returns the result of the upload_dataset_artifact() function. Aliases params are only intended for extra tagging, so theyre not required."""
+        return self.upload_dataset_artifact(WB_ARTIFACT_NORMAL_MASKS_TAG, WB_JOB_UPLOAD_DATASET, normal_masks_path(), [self.wdb_alias, WB_ARTIFACT_NORMAL_MASKS_TAG] + aliases)
+
+    def upload_normal_processed_dataset_artifact(self, aliases=[]):
+        """This function uploads a NORMAL PROCESSED dataset artifact to the WDB and returns the result of the upload_dataset_artifact() function. Aliases params are only intended for extra tagging, so theyre not required."""
+        return self.upload_dataset_artifact(WB_ARTIFACT_NORMAL_PROCESSED_TAG, WB_JOB_UPLOAD_DATASET, normal_processed_path(), [self.wdb_alias, WB_ARTIFACT_NORMAL_PROCESSED_TAG] + aliases)
 
     def load_dir_artifact(self, tag: str, job: str):
         """This function loads a directory artifact from a given job. 
@@ -157,9 +173,25 @@ class WandbUtils:
         """This function is used to load an artifact associated with the Covid-19 dataset. It takes in a self argument and returns a directory artifact associated with the Covid-19 tag and the job of loading the dataset."""
         return self.load_dir_artifact(WB_ARTIFACT_COVID_TAG, WB_JOB_LOAD_DATASET)
 
+    def load_covid_masks_dataset_artifact(self):
+        """This function is used to load an artifact associated with the Covid-19 masks dataset. It takes in a self argument and returns a directory artifact associated with the Covid-19 masks tag and the job of loading the dataset."""
+        return self.load_dir_artifact(WB_ARTIFACT_COVID_MASKS_TAG, WB_JOB_LOAD_DATASET)
+    
+    def load_covid_processed_dataset_artifact(self):
+        """This function is used to load an artifact associated with the Covid-19 processed dataset. It takes in a self argument and returns a directory artifact associated with the Covid-19 processed tag and the job of loading the dataset."""
+        return self.load_dir_artifact(WB_ARTIFACT_COVID_PROCESSED_TAG, WB_JOB_LOAD_DATASET)
+
     def load_normal_dataset_artifact(self):
         """This function is used to load a normal dataset artifact from the directory WB_ARTIFACT_NORMAL_TAG. The artifact is loaded using the job WB_JOB_LOAD_DATASET."""
         return self.load_dir_artifact(WB_ARTIFACT_NORMAL_TAG, WB_JOB_LOAD_DATASET)
+
+    def load_normal_masks_dataset_artifact(self):
+        """This function is used to load an artifact associated with the normal masks dataset. It takes in a self argument and returns a directory artifact associated with the normal masks tag and the job of loading the dataset."""
+        return self.load_dir_artifact(WB_ARTIFACT_NORMAL_MASKS_TAG, WB_JOB_LOAD_DATASET)
+
+    def load_normal_processed_dataset_artifact(self):
+        """This function is used to load an artifact associated with the normal processed dataset. It takes in a self argument and returns a directory artifact associated with the normal processed tag and the job of loading the dataset."""
+        return self.load_dir_artifact(WB_ARTIFACT_NORMAL_PROCESSED_TAG, WB_JOB_LOAD_DATASET)
 
     def load_model_artifact(self, run):
         """This function loads a model from a run in W&B. 
