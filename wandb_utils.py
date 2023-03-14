@@ -131,13 +131,13 @@ class WandbUtils:
 
         self.execute_with(callback, job)
 
-    def upload_covid_dataset_artifact(self):
-        """This function uploads a COVID dataset artifact to the WDB and returns the result of the upload_dataset_artifact() function."""
-        return self.upload_dataset_artifact(WB_ARTIFACT_COVID_TAG, WB_JOB_UPLOAD_DATASET, cov_path(), [self.wdb_alias, WB_ARTIFACT_COVID_TAG])
+    def upload_covid_dataset_artifact(self, aliases=[]):
+        """This function uploads a COVID dataset artifact to the WDB and returns the result of the upload_dataset_artifact() function. Aliases params are only intended for extra tagging, so theyre not required."""
+        return self.upload_dataset_artifact(WB_ARTIFACT_COVID_TAG, WB_JOB_UPLOAD_DATASET, cov_path(), [self.wdb_alias, WB_ARTIFACT_COVID_TAG] + aliases)
 
-    def upload_normal_dataset_artifact(self):
-        """This function uploads a NORMAL dataset artifact to the WDB and returns the result of the upload_dataset_artifact() function."""
-        return self.upload_dataset_artifact(WB_ARTIFACT_NORMAL_TAG, WB_JOB_UPLOAD_DATASET, normal_path(), [self.wdb_alias, WB_ARTIFACT_NORMAL_TAG])
+    def upload_normal_dataset_artifact(self, aliases = []):
+        """This function uploads a NORMAL dataset artifact to the WDB and returns the result of the upload_dataset_artifact() function. Aliases params are only intended for extra tagging, so theyre not required."""
+        return self.upload_dataset_artifact(WB_ARTIFACT_NORMAL_TAG, WB_JOB_UPLOAD_DATASET, normal_path(), [self.wdb_alias, WB_ARTIFACT_NORMAL_TAG] + aliases)
 
     def load_dir_artifact(self, tag: str, job: str):
         """This function loads a directory artifact from a given job. 
