@@ -6,13 +6,15 @@ from vhviv_tools.json import json
 # Project variables (just to avoid repeating/misspelling them)
 # JOB VARIABLES:
 WB_JOB_UPLOAD_DATASET = "upload_dataset"
+WB_JOB_LOAD_DATASET = "load_dataset"
 WB_JOB_LOG_TABLE = "log_interactive_table"
 WB_JOB_HISTOGRAM_CHART = "log_histogram_chart"
 WB_JOB_LOAD_ARTIFACTS = "load_artifacts"
 WB_JOB_MODEL_FIT = "model_fit"
 # TAG VARIABLES:
 WB_ARTIFACT_DATASET_TAG = "dataset"
-WB_ARTIFACT_COVID_DATASET_TAG = "covid_dataset"
+WB_ARTIFACT_COVID_TAG = "covid"
+WB_ARTIFACT_NORMAL_TAG = "normal"
 WB_ARTIFACT_MODEL_TAG = "model"
 
 
@@ -23,7 +25,6 @@ def load_config(key: str) -> str:
 
 def __get_dataset_path(value: str) -> str:
     """The function reads the "config.json" file and returns the path for the specified dataset from the "datasets" key in the config file."""
-    config = json("config.json")
     return load_config(WB_ARTIFACT_DATASET_TAG)[value]
 
 
@@ -61,12 +62,12 @@ def covid_masks_path():
     return abs_path(__get_dataset_path("covid_masks_path"))
 
 
-def non_cov_path():
+def normal_path():
     """This function returns the absolute path of the raw healthy dataset."""
     return abs_path(__get_dataset_path("raw_normal_path"))
 
 
-def non_covid_masks_path():
+def normal_masks_path():
     """This function returns the absolute path of the healthy masks dataset."""
     return abs_path(__get_dataset_path("normal_masks_path"))
 
@@ -76,7 +77,7 @@ def cov_processed_path():
     return abs_path(__get_dataset_path("covid_processed_path"))
 
 
-def non_cov_processed_path():
+def normal_processed_path():
     """This function returns the absolute path of the healthy processed dataset."""
     return abs_path(__get_dataset_path("normal_processed_path"))
 
@@ -91,9 +92,9 @@ def cov_images():
     return glob(cov_path() + "/*g")
 
 
-def non_cov_images():
+def normal_images():
     """Returns a list of all files with the extension "g" from the directory specified by the function non_cov_path(). """
-    return glob(non_cov_path() + "/*g")
+    return glob(normal_path() + "/*g")
 
 
 def cov_masks():
@@ -101,9 +102,9 @@ def cov_masks():
     return glob(covid_masks_path() + "/*g")
 
 
-def non_cov_masks():
+def normal_masks():
     """Returns a list of all files with the extension "g" from the directory specified by the function non_covid_masks_path()."""
-    return glob(non_covid_masks_path() + "/*g")
+    return glob(normal_masks_path() + "/*g")
 
 
 def cov_processed():
@@ -111,6 +112,6 @@ def cov_processed():
     return glob(cov_processed_path() + "/*g")
 
 
-def non_cov_processed():
+def normal_processed():
     """Returns a list of all files with the extension "g" from the directory specified by the function non-cov-processed-path()."""
-    return glob(non_cov_processed_path() + "/*g")
+    return glob(normal_processed_path() + "/*g")

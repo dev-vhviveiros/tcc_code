@@ -8,7 +8,7 @@ from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import confusion_matrix, make_scorer, f1_score
 from models import classifier_model
-from utils import WB_ARTIFACT_COVID_DATASET_TAG, WB_ARTIFACT_DATASET_TAG, WB_JOB_LOAD_ARTIFACTS, WB_JOB_MODEL_FIT, check_folder, load_config, model_path
+from utils import WB_ARTIFACT_COVID_TAG, WB_ARTIFACT_DATASET_TAG, WB_JOB_LOAD_ARTIFACTS, WB_JOB_MODEL_FIT, check_folder, load_config, model_path
 from training_plot import TrainingPlot
 from wandb_utils import WandbUtils
 
@@ -53,7 +53,7 @@ class Classifier:
             test_set = [self.X_test, self.y_test]
 
             raw_data = wandb.Artifact(
-                WB_ARTIFACT_COVID_DATASET_TAG, type=WB_ARTIFACT_DATASET_TAG,
+                WB_ARTIFACT_COVID_TAG, type=WB_ARTIFACT_DATASET_TAG,
                 description="Raw covid dataset, split into train/test",
                 metadata={"sizes": [len(dataset) for dataset in [training_set, test_set]]})
 

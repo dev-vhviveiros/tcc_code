@@ -4,14 +4,14 @@
     "wb_project_name": "tcc",
     "wb_project_path": "vhviveiros/tcc"
   },
-  "datasets": {
+  "dataset": {
     "raw_datasets_path": "dataset",
     "raw_covid_dataset_path": "dataset/covid",
     "raw_normal_path": "dataset/normal",
     "covid_masks_path": "cov_masks",
-    "normal_masks_path": "non_cov_masks",
+    "normal_masks_path": "normal_masks",
     "covid_processed_path": "cov_processed",
-    "normal_processed_path": "non_cov_processed",
+    "normal_processed_path": "normal_processed",
     "model_path": "model.h5"
   }
 }

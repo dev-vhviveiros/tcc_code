@@ -130,3 +130,4 @@ wandb/
 test*
 dataset/
 *.h5
+.vscode/
