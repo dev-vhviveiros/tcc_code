@@ -17,12 +17,12 @@ class WandbUtils:
         self.project_path = config["wb_project_path"]
         self.wdb_alias = wdb_data_alias
 
-    def execute_with(self, callback, job_type):
-        """This code takes two parameters, self and callback. It then initializes a run with the project name and job type specified in the parameters. The callback function is then called with the run as an argument. Finally, it prints a message indicating that the job is done."""
+    def execute_with(self, callback, job_type) -> any:
+        """This function initializes a run with the project name and job type given in the parameters, then executes the callback with the run as an argument. After the callback is executed, it prints out a message saying that the job is done, and returns whatever value was returned by the callback."""
         with (wandb.init(project=self.project_name, job_type=job_type)) as run:
-            callback(run)
-
-        print("JOB: <" + job_type + "> DONE!")
+            result = callback(run)
+            print("JOB: <" + job_type + "> DONE!")
+            return result
 
     def download_artifact(self, name, relative_path, alias='latest'):
         """This function downloads an artifact from the W&B API. 
@@ -155,7 +155,7 @@ class WandbUtils:
         """This function uploads a NORMAL PROCESSED dataset artifact to the WDB and returns the result of the upload_dataset_artifact() function. Aliases params are only intended for extra tagging, so theyre not required."""
         return self.upload_dataset_artifact(WB_ARTIFACT_NORMAL_PROCESSED_TAG, WB_JOB_UPLOAD_DATASET, normal_processed_path(), [self.wdb_alias, WB_ARTIFACT_NORMAL_PROCESSED_TAG] + aliases)
 
-    def load_dir_artifact(self, tag: str, job: str):
+    def load_dir_artifact(self, tag: str, job: str) -> str:
         """This function loads a directory artifact from a given job. 
             It takes two parameters: 
                 tag (str): the tag of the artifact 
@@ -169,31 +169,31 @@ class WandbUtils:
 
         return self.execute_with(callback, job)
 
-    def load_covid_dataset_artifact(self):
+    def load_covid_dataset_artifact(self) -> str:
         """This function is used to load an artifact associated with the Covid-19 dataset. It takes in a self argument and returns a directory artifact associated with the Covid-19 tag and the job of loading the dataset."""
         return self.load_dir_artifact(WB_ARTIFACT_COVID_TAG, WB_JOB_LOAD_DATASET)
 
-    def load_covid_masks_dataset_artifact(self):
+    def load_covid_masks_dataset_artifact(self) -> str:
         """This function is used to load an artifact associated with the Covid-19 masks dataset. It takes in a self argument and returns a directory artifact associated with the Covid-19 masks tag and the job of loading the dataset."""
         return self.load_dir_artifact(WB_ARTIFACT_COVID_MASKS_TAG, WB_JOB_LOAD_DATASET)
-    
-    def load_covid_processed_dataset_artifact(self):
+
+    def load_covid_processed_dataset_artifact(self) -> str:
         """This function is used to load an artifact associated with the Covid-19 processed dataset. It takes in a self argument and returns a directory artifact associated with the Covid-19 processed tag and the job of loading the dataset."""
         return self.load_dir_artifact(WB_ARTIFACT_COVID_PROCESSED_TAG, WB_JOB_LOAD_DATASET)
 
-    def load_normal_dataset_artifact(self):
+    def load_normal_dataset_artifact(self) -> str:
         """This function is used to load a normal dataset artifact from the directory WB_ARTIFACT_NORMAL_TAG. The artifact is loaded using the job WB_JOB_LOAD_DATASET."""
         return self.load_dir_artifact(WB_ARTIFACT_NORMAL_TAG, WB_JOB_LOAD_DATASET)
 
-    def load_normal_masks_dataset_artifact(self):
+    def load_normal_masks_dataset_artifact(self) -> str:
         """This function is used to load an artifact associated with the normal masks dataset. It takes in a self argument and returns a directory artifact associated with the normal masks tag and the job of loading the dataset."""
         return self.load_dir_artifact(WB_ARTIFACT_NORMAL_MASKS_TAG, WB_JOB_LOAD_DATASET)
 
-    def load_normal_processed_dataset_artifact(self):
+    def load_normal_processed_dataset_artifact(self) -> str:
         """This function is used to load an artifact associated with the normal processed dataset. It takes in a self argument and returns a directory artifact associated with the normal processed tag and the job of loading the dataset."""
         return self.load_dir_artifact(WB_ARTIFACT_NORMAL_PROCESSED_TAG, WB_JOB_LOAD_DATASET)
 
-    def load_model_artifact(self, run):
+    def load_model_artifact(self, run) -> str:
         """This function loads a model from a run in W&B. 
         It takes in a parameter 'run' which is the run from which the model should be loaded. 
         The function first uses the W&B artifact associated with the run to download the model. It then returns the directory of the model."""

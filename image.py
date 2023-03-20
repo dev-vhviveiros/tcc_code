@@ -205,7 +205,7 @@ class ImageSegmentator:
         self.folder_in = folder_in
         self.folder_out = folder_out
 
-    def __test_load_image(self, test_file):
+    def __load_image(self, test_file):
         img = cv2.imread(test_file, cv2.IMREAD_GRAYSCALE)
         img = img / 255
         img = cv2.resize(img, self.target_size)
@@ -213,9 +213,9 @@ class ImageSegmentator:
         img = np.reshape(img, (1,) + img.shape)
         return img
 
-    def __test_generator(self, test_files):
+    def __generator(self, test_files):
         for test_file in test_files:
-            yield self.__test_load_image(test_file)
+            yield self.__load_image(test_file)
 
     def __save_result(self, save_path, npyfile, test_files):
         for i, item in enumerate(npyfile):
@@ -233,12 +233,12 @@ class ImageSegmentator:
         model = unet_model(input_size=self.input_size)
         model.load_weights('segmentation_model.hdf5')
 
-        test_files = glob(self.folder_in + "/*g")
+        files = glob(self.folder_in + "/*g")
 
-        test_gen = self.__test_generator(
-            test_files)
-        results = model.predict_generator(test_gen, len(test_files), verbose=1)
-        self.__save_result(self.folder_out, results, test_files)
+        gen = self.__generator(
+            files)
+        results = model.predict_generator(gen, len(files), verbose=1)
+        self.__save_result(self.folder_out, results, files)
 
 
 class ImageCharacteristics:
