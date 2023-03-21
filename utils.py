@@ -61,7 +61,7 @@ def cov_path():
     return abs_path(__get_dataset_path("raw_covid_dataset_path"))
 
 
-def covid_masks_path():
+def cov_masks_path():
     """This function returns the absolute path of the covid masks dataset."""
     return abs_path(__get_dataset_path("covid_masks_path"))
 
@@ -103,7 +103,7 @@ def normal_images():
 
 def cov_masks():
     """Returns a list of all files with the extension "g" from the directory specified by the function covid_masks_path(). """
-    return glob(covid_masks_path() + "/*g")
+    return glob(cov_masks_path() + "/*g")
 
 
 def normal_masks():
