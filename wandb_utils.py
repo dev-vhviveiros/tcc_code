@@ -137,7 +137,7 @@ class WandbUtils:
         def callback(run):
             artifact = wandb.Artifact(dataset_artifact.tag, type=WB_ARTIFACT_DATASET_TAG)
             artifact.add_dir(dataset_artifact.path)
-            run.log_artifact(artifact, aliases=dataset_artifact.aliases)
+            run.log_artifact(artifact, aliases=dataset_artifact.aliases + [self.wdb_alias])
 
         self.execute_with(callback, WB_JOB_UPLOAD_DATASET)
 

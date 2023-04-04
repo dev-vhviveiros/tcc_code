@@ -4,15 +4,13 @@ from utils import WB_ARTIFACT_COVID_MASKS_TAG, WB_ARTIFACT_COVID_PROCESSED_TAG, 
 
 
 class WBDatasetArtifact:
-    def __init__(self, parent_tag: str, tag: str, path: str, aliases: List[str] = []):
+    def __init__(self, parent_tag: str, tag: str, path: str):
         self.parent_tag = parent_tag
         self.tag = tag
         self.path = path
-        self.aliases = aliases
-        self.aliases += [parent_tag, tag]
+        self.aliases = [parent_tag, tag]
 
     def wb_artifact_path(self, project_path: str, wdb_alias: str) -> str:
-        self.aliases += [wdb_alias]
         return '%s/%s:%s' % (project_path, self.tag, wdb_alias)
 
 

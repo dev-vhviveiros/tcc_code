@@ -345,7 +345,7 @@ class ImageProcessor:
         return processed_images
 
 
-class ImageSegmentator:
+class ImageSegmenter:
     """
     Class for segmenting lung images using the U-Net model.
 
@@ -358,7 +358,7 @@ class ImageSegmentator:
                  folder_in='',
                  folder_out=''):
         """
-        Initializes an ImageSegmentator object.
+        Initializes an ImageSegmenter object.
 
         Args:
         - input_size: a tuple representing the input shape of the U-Net model.
