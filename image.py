@@ -1,5 +1,5 @@
 import pandas as pd
-from tqdm import tqdm
+import tqdm as tq
 from concurrent.futures import ThreadPoolExecutor
 from glob import glob
 import cv2
@@ -20,7 +20,7 @@ from utils import abs_path
 class Image:
     def __init__(self, file_path, divide=False, reshape=False):
         """
-        Load and preprocess image file.
+        Load an image file.
 
         Args:
             file_path (str): path to image file
@@ -31,9 +31,9 @@ class Image:
             path (str): path to image file
             divide (bool): whether to divide the image by 255 after loading
             reshape (bool): whether to reshape the image to 1D array
-            data (ndarray): preprocessed image data
+            data (ndarray): image data
         """
-        self.path = file_path
+        self.file_path = file_path
         self.divide = divide
         self.reshape = reshape
         self.data = self.__load_file()
@@ -49,7 +49,7 @@ class Image:
             ndarray: preprocessed image data
         """
         # load image in grayscale
-        img = cv2.imread(self.path, cv2.IMREAD_GRAYSCALE)
+        img = cv2.imread(self.file_path, cv2.IMREAD_GRAYSCALE)
 
         # divide image by 255
         if self.divide:
@@ -65,24 +65,24 @@ class Image:
 
         return img
 
-    def get_file_dir(self):
+    def get_filename(self):
         """
-        Return the directory of the file.
+        Return filename.
 
         Returns:
-            tuple: directory of the file
+            tuple: 0 = filename, 1 = file extension
         """
-        return os.path.splitext(os.path.basename(self.path))
+        return os.path.splitext(os.path.basename(self.file_path))
 
-    def save_to(self, path_dir):
+    def save_as_processed(self, out_path):
         """
-        Save the image to a file.
+        Save the image to a file, with 'processed' tag.
 
         Args:
             path_dir (str): directory to save the file
         """
-        filename, fileext = self.get_file_dir()
-        result_file = abs_path(path_dir, "%s_processed%s" % (filename, fileext))
+        filename, fileext = self.get_filename()
+        result_file = abs_path(out_path, "%s_processed%s" % (filename, fileext))
         cv2.imwrite(result_file, self.data)
 
     def shape(self):
@@ -122,7 +122,7 @@ class Image:
         plt.plot(histg)
 
         # save histogram to file
-        filename, _ = self.get_file_dir()
+        filename, _ = self.get_filename()
         result_file = abs_path(save_folder, "%s_histogram%s" % (filename, '.png'))
         plt.savefig(result_file)
         plt.close()
@@ -142,13 +142,31 @@ class Image:
 
         return ht_mean
 
+class ImageTuple:
+    """This is a class that represents an image and its corresponding mask image.
+    The mask image also has an associated image object, which allows for
+    convenient access to the mask image's properties."""
+    def __init__(self, image:Image, mask:Image):
+        self.image = image
+        self.mask = mask
 
-class ImageGenerator:
+    @staticmethod
+    def from_image(image:Image, masks_dir_path:str):
+        """This method creates an ImageTuple from an image and a masks directory.
+        The masks directory is used to find the corresponding mask image for the input image."""
+        img_filename = image.get_filename()
+        #TODO: add the `_mask` endfile to the project configs
+        mask_img_filename = "%s_mask%s" % (img_filename[0], img_filename[1])
+        mask_img_path = "%s/%s" % (masks_dir_path, mask_img_filename)
+        mask = Image(mask_img_path, False, False)
+        return ImageTuple(image, mask)
+
+class ImageLoader:
     """
     A class for generating and preprocessing image data for COVID-19 detection.
     """
 
-    def generate_from(self, path: str, divide: bool = False, reshape: bool = False, only_data: bool = False):
+    def load_from(self, path: str, divide: bool = False, reshape: bool = False, only_data: bool = False):
         """
         Generates an Image object from a given path.
 
@@ -169,14 +187,16 @@ class ImageGenerator:
             If only_data is True, returns the data of the image. Otherwise, returns the entire Image object.
 
         """
+        #TODO: make it load images in parallel
         image_files = glob(path + "/*g")
+        
         for image_file in image_files:
             if only_data:
                 yield Image(image_file, divide, reshape).data
             else:
                 yield Image(image_file, divide, reshape)
 
-    def generate_preprocessing_data(self, cov_path: str, cov_masks_path: str, non_cov_path: str, non_cov_masks_path: str) -> List:
+    def generate_preprocessing_data(self, cov_path: str, cov_masks_path: str, normal_path: str, normal_masks_path: str) -> List:
         """
         Generates preprocessing data from four input paths.
 
@@ -186,9 +206,9 @@ class ImageGenerator:
             Required. The path of the COVID-19 image data.
         cov_masks_path : str
             Required. The path of the COVID-19 mask data.
-        non_cov_path : str
+        normal_path : str
             Required. The path of the non-COVID-19 image data.
-        non_cov_masks_path : str
+        normal_masks_path : str
             Required. The path of the non-COVID-19 mask data.
 
         Returns:
@@ -198,20 +218,20 @@ class ImageGenerator:
 
         """
         with ThreadPoolExecutor() as executor:
-            cov_images = executor.submit(self.generate_from, cov_path)
-            cov_masks = executor.submit(self.generate_from, cov_masks_path)
-            non_cov_images = executor.submit(self.generate_from, non_cov_path)
-            non_cov_masks = executor.submit(self.generate_from, non_cov_masks_path)
+            cov_images = executor.submit(self.load_from, cov_path)
+            cov_masks = executor.submit(self.load_from, cov_masks_path)
+            normal_images = executor.submit(self.load_from, normal_path)
+            normal_masks = executor.submit(self.load_from, normal_masks_path)
 
-            return [cov_images.result(), cov_masks.result(), non_cov_images.result(), non_cov_masks.result()]
+            return [cov_images.result(), cov_masks.result(), normal_images.result(), normal_masks.result()]
 
-    def generate_classificator_data(self, cov_path, non_cov_path, divide=True, reshape=False):
+    def generate_classificator_data(self, cov_path, normal_path, divide=True, reshape=False):
         """
         Generate classification data from two paths, one for COVID-19 positive images and one for COVID-19 negative images. 
 
         Args:
             cov_path (str): Path to the folder containing COVID-19 positive images.
-            non_cov_path (str): Path to the folder containing COVID-19 negative images.
+            normal_path (str): Path to the folder containing COVID-19 negative images.
             divide (bool, optional): Whether to divide the image into its RGB channels. Defaults to True.
             reshape (bool, optional): Whether to reshape the image into a specified shape. Defaults to False.
 
@@ -222,14 +242,14 @@ class ImageGenerator:
         """
         with ThreadPoolExecutor() as executor:
             cov_images = executor.map(lambda x: Image(x, divide, reshape).data, glob(cov_path + "/*g"))
-            non_cov_images = executor.map(lambda x: Image(x, divide, reshape).data, glob(non_cov_path + "/*g"))
+            normal_images = executor.map(lambda x: Image(x, divide, reshape).data, glob(normal_path + "/*g"))
 
-        entries = np.concatenate((list(cov_images), list(non_cov_images)))
+        entries = np.concatenate((list(cov_images), list(normal_images)))
         entries = np.repeat(entries[..., np.newaxis], 3, -1)
 
         cov_len = len(list(cov_images))
-        non_cov_len = len(list(non_cov_images))
-        results_len = cov_len + non_cov_len
+        normal_len = len(list(normal_images))
+        results_len = cov_len + normal_len
         results = np.zeros((results_len))
 
         results[0:cov_len] = 1
@@ -238,27 +258,27 @@ class ImageGenerator:
         return train_test_split(
             entries, results, test_size=0.2, random_state=0)
 
-    def generate_processed_data(self, cov_processed_path, non_cov_processed_path, divide=True, reshape=False):
+    def generate_processed_data(self, cov_processed_path, normal_processed_path, divide=True, reshape=False):
         """Generate processed data from two paths.
 
         Args:
             cov_processed_path (str): The path for processed COVID-19 images.
-            non_cov_processed_path (str): The path for processed non-COVID-19 images.
+            normal_processed_path (str): The path for processed non-COVID-19 images.
             divide (bool, optional): Whether to divide the image into its RGB channels. Defaults to True.
             reshape (bool, optional): Whether to reshape the image into a specified shape. Defaults to False.
 
         Returns:
-            list: A list containing the cov_images and non_cov_images.
+            list: A list containing the cov_images and normal_images.
 
-        This method generates processed data from two paths, `cov_processed_path` and `non_cov_processed_path`. 
+        This method generates processed data from two paths, `cov_processed_path` and `normal_processed_path`. 
         It uses `ThreadPoolExecutor` to submit the `generate_from` function with each path, passing the `divide` 
-        and `reshape` parameters. The method returns a list containing the `cov_images` and `non_cov_images`.
+        and `reshape` parameters. The method returns a list containing the `cov_images` and `normal_images`.
         """
         with ThreadPoolExecutor() as executor:
-            cov_images = executor.submit(self.generate_from, cov_processed_path, divide, reshape)
-            non_cov_images = executor.submit(self.generate_from, non_cov_processed_path, divide, reshape)
+            cov_images = executor.submit(self.load_from, cov_processed_path, divide, reshape)
+            normal_images = executor.submit(self.load_from, normal_processed_path, divide, reshape)
 
-            return [cov_images.result(), non_cov_images.result()]
+            return [cov_images.result(), normal_images.result()]
 
 
 class ImageSaver:
@@ -279,25 +299,51 @@ class ImageSaver:
             path_dir (str): The directory to save the images in.
         """
         for img in self.images:
-            img.save_to(path_dir)
+            img.save_as_processed(path_dir)
 
 
 class ImageProcessor:
+    # def __init__(self, base_path: str, masks_path: str, divide: bool = False, reshape: bool = False, only_data: bool = False):
+    #     """
+    #     Create an ImageProcessor object with a base path and a mask path.
 
-    def __init__(self, images, masks):
-        """
-        Initialize ImageProcessor class with images and masks.
+    #     Args:
+    #         base_path (str): The path to the base images.
+    #         masks_path (str): The path to the mask images.
+    #         divide (bool): Optional. Default is False. Whether to divide the image into its RGB channels.
+    #         reshape (bool): Optional. Default is False. Whether to reshape the image into a specified shape.
+    #         only_data (bool): Optional. Default is False. Whether to return only the data of the image or the entire Image object.
+    #     """
+    #     self.base_path = base_path
+    #     self.masks_path = masks_path
 
-        Args:
-        - images (list): list of image objects
-        - masks (list): list of mask objects
-        """
-        self.images = images
-        self.masks = masks
+    #     # Create a ThreadPoolExecutor to generate the images in parallel.
+    #     with ThreadPoolExecutor() as executor:
+    #         # Submit a job to the executor to generate the base images.
+    #         # The job consists of calling the generate_from method of an ImageGenerator instance
+    #         images = executor.submit(ImageLoader().load_from,
+    #                                  self.base_path, divide, reshape, only_data).result()
+    #         self.images = list(images)
+
+    #         # Submit a job to the executor to generate the masks images.
+    #         # The job consists of calling the generate_from method of an ImageGenerator instance
+    #         masks = executor.submit(ImageLoader().load_from,
+    #                                 self.masks_path, divide, reshape, only_data).result()
+    #         self.masks = list(masks)
+    
+    def __init__(self, base_path: str, masks_path: str, divide: bool = False, reshape: bool = False, only_data: bool = False):
+        self.base_path = base_path
+        self.masks_path = masks_path
+
+        print("Loading images...")
+        # Load images:
+        image_loader = ImageLoader().load_from(self.base_path, divide, reshape, only_data)
+        self.tuples = list(map(lambda img: ImageTuple.from_image(img, self.masks_path), image_loader))
+        print("Images loaded.")
 
     @staticmethod
     @njit(parallel=True)
-    def __apply_mask(img, mask):
+    def __apply_mask(img_data, mask_data):
         """
         Apply mask to an image.
 
@@ -308,44 +354,52 @@ class ImageProcessor:
         Returns:
         - modified_img (ndarray): modified 2D array of shape (512, 512)
         """
-        modified_img = np.copy(img)
-        for i in prange(img.shape[0]):
-            for j in prange(img.shape[1]):
-                if mask[i, j] <= 20:
-                    modified_img[i, j] = 0
-        return modified_img
+        modified_img_data = np.copy(img_data)
+        for i in prange(img_data.shape[0]):
+            for j in prange(img_data.shape[1]):
+                if mask_data[i, j] <= 20:
+                    modified_img_data[i, j] = 0
+        return modified_img_data
 
-    def __process_image(self, args):
+    def __process_image(self, img, mask):
+        eq_img_data = cv2.equalizeHist(img.data)
+        processed_image_data = self.__apply_mask(eq_img_data, mask.data)
+        img.data = processed_image_data
+        # Return the Image object with the new processed data
+        return img
+
+    def __check_mask_match(self, img: Image, mask: Image) -> bool:
         """
-        Process image with histogram equalization and mask.
+        Verifies if the mask filename is equals to the image filename.
 
         Args:
-        - args (tuple): a tuple of (image, mask)
-
-        Returns:
-        - processed_image (ndarray): processed 2D array of shape (512, 512)
+            img (Image): the image
+            mask (Image): the mask of the image
         """
-        img, mask = args
-        img_data = cv2.equalizeHist(img.data)
-        processed_image = self.__apply_mask(img_data, mask.data)
-        return processed_image
+        img_filename = img.get_filename()
+        mask_filename = mask.get_filename()
+        return "%s_mask%s" % (img_filename[0], img_filename[1]) == mask_filename[0] + mask_filename[1]
 
+    # def process(self):
+    #     """
+    #     Process all images and masks.
+
+    #     Returns:
+    #     - processed_images (list): list of processed image objects
+    #     """
+    #     # This line create pairs of [img, mask]
+    #     iterables = np.swapaxes([self.images, self.masks], 0, 1)
+    #     processed_images = []
+    #     for args in tq.tqdm(iterables):
+    #         assert (self.__check_mask_match(args[0], args[1]))
+    #         processed_image = self.__process_image(args)
+    #         processed_images.append(processed_image)
+    #     return processed_images
     def process(self):
-        """
-        Process all images and masks.
+        return list(map(lambda tuple: self.__process_image(tuple.image, tuple.mask), self.tuples))
+    
 
-        Returns:
-        - processed_images (list): list of processed image objects
-        """
-        iterables = np.swapaxes([self.images, self.masks], 0, 1)
-        processed_images = []
-        for args in tqdm(iterables):
-            processed_image = self.__process_image(args)
-            processed_images.append(processed_image)
-        return processed_images
-
-
-class ImageSegmenter:
+class LungMaskGenerator:
     """
     Class for segmenting lung images using the U-Net model.
 
@@ -358,22 +412,22 @@ class ImageSegmenter:
                  folder_in='',
                  folder_out=''):
         """
-        Initializes an ImageSegmenter object.
+        Initializes an LungMaskGenerator object.
 
         Args:
         - input_size: a tuple representing the input shape of the U-Net model.
         - target_size: a tuple representing the target shape of the input images.
         - folder_in: a string representing the path to the input folder containing the lung images.
-        - folder_out: a string representing the path to the output folder where the segmented images will be saved.
+        - folder_out: a string representing the path to the output folder where the masks will be saved.
         """
         self.input_size = input_size
         self.target_size = target_size
         self.folder_in = folder_in
         self.folder_out = folder_out
 
-    def __load_image(self, test_file):
+    def __load_image(self, img_file):
         """
-        Loads and preprocesses an image file.
+        Loads and processes an image file.
 
         Args:
         - test_file: a string representing the path to the image file.
@@ -381,14 +435,14 @@ class ImageSegmenter:
         Returns:
         - A numpy array representing the preprocessed image.
         """
-        img = cv2.imread(test_file, cv2.IMREAD_GRAYSCALE)
+        img = cv2.imread(img_file, cv2.IMREAD_GRAYSCALE)
         img = img / 255
         img = cv2.resize(img, self.target_size)
         img = np.reshape(img, img.shape + (1,))
         img = np.reshape(img, (1,) + img.shape)
         return img
 
-    def __generator(self, test_files):
+    def __load_images(self, img_files):
         """
         Generator function that yields preprocessed image arrays.
 
@@ -398,8 +452,8 @@ class ImageSegmenter:
         Yields:
         - A numpy array representing the preprocessed image.
         """
-        for test_file in test_files:
-            yield self.__load_image(test_file)
+        for img_file in img_files:
+            yield self.__load_image(img_file)
 
     def __save_result(self, save_path, npyfile, test_files):
         """
@@ -416,11 +470,11 @@ class ImageSegmenter:
 
             filename, fileext = os.path.splitext(os.path.basename(result_file))
 
-            result_file = os.path.join(save_path, "%s_predict%s" % (filename, fileext))
+            result_file = os.path.join(save_path, "%s_mask%s" % (filename, fileext))
 
             cv2.imwrite(result_file, img)
 
-    def segmentate(self):
+    def generate(self):
         """
         This method loads the saved model from disk, generates image predictions for the images in the specified input folder, and saves the segmented images to the specified output folder.
 
@@ -434,7 +488,7 @@ class ImageSegmenter:
         files = glob(self.folder_in + "/*g")
 
         # Generate predictions for images in input folder
-        gen = self.__generator(files)
+        gen = self.__load_images(files)
         results = model.predict_generator(gen, len(files), verbose=1)
 
         # Save segmented images to output folder
@@ -442,16 +496,16 @@ class ImageSegmenter:
 
 
 class ImageCharacteristics:
-    def __init__(self, cov_images, non_cov_images):
+    def __init__(self, cov_images, normal_images):
         """
         Initializes an ImageCharacteristics object with a list of covered and non-covered images.
 
         Args:
         - cov_images (list): A list of Image objects representing the covered images.
-        - non_cov_images (list): A list of Image objects representing the non-covered images.
+        - normal_images (list): A list of Image objects representing the non-covered images.
         """
         self.cov_images = cov_images
-        self.non_cov_images = non_cov_images
+        self.normal_images = normal_images
 
     def save(self, file_path):
         """
@@ -461,15 +515,15 @@ class ImageCharacteristics:
         - file_path (str): The path to the file where the data will be saved.
         """
         # Compute the histogram and haralick features for each non-covered image
-        non_cov_data = [np.hstack((img.hist(), img.haralick(), [0]))
-                        for img in self.non_cov_images]
+        normal_data = [np.hstack((img.hist(), img.haralick(), [0]))
+                       for img in self.normal_images]
 
         # Compute the histogram and haralick features for each covered image
         cov_data = [np.hstack((img.hist(), img.haralick(), [1]))
                     for img in self.cov_images]
 
         # Combine the data for covered and non-covered images
-        data = non_cov_data + cov_data
+        data = normal_data + cov_data
 
         # Convert the data to a pandas DataFrame and save it to a csv file
         pd.DataFrame(data).to_csv(file_path, index=False)
@@ -495,7 +549,7 @@ class ImageDataHistogram:
         It generates an image using the ImageGenerator class and calls ImageDataHistogram's __hist_mean() method to calculate
         the mean of the histogram.
         """
-        return ImageDataHistogram.__hist_mean(ImageGenerator().generate_from(
+        return ImageDataHistogram.__hist_mean(ImageLoader().load_from(
             abs_path(path)))
 
     @staticmethod
@@ -517,5 +571,5 @@ class ImageDataHistogram:
         It generates an image using the ImageGenerator class and calls the __hist_median() method of the ImageDataHistogram class
         to get the median of its histogram.
         """
-        return ImageDataHistogram.__hist_median(ImageGenerator().generate_from(
+        return ImageDataHistogram.__hist_median(ImageLoader().load_from(
             abs_path(path)))

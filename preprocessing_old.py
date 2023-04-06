@@ -1,6 +1,6 @@
 # %%Imports
 from utils import abs_path, check_folder
-from image import ImageSegmenter, ImageCharacteristics, ImageGenerator, ImageSaver, ImageProcessor
+from image import LungMaskGenerator, ImageCharacteristics, ImageLoader, ImageSaver, ImageProcessor
 import wandb
 
 covid_path = abs_path('dataset/covid')
@@ -13,13 +13,13 @@ non_covid_masks_path = abs_path('non_cov_masks')
 check_folder(covid_masks_path)
 check_folder(non_covid_masks_path)
 
-ImageSegmenter(folder_in=covid_path,
-               folder_out=covid_masks_path).segmentate()
-ImageSegmenter(folder_in=non_covid_path,
-               folder_out=non_covid_masks_path).segmentate()
+LungMaskGenerator(folder_in=covid_path,
+                  folder_out=covid_masks_path).generate()
+LungMaskGenerator(folder_in=non_covid_path,
+                  folder_out=non_covid_masks_path).generate()
 
 # %%Read images
-generator = ImageGenerator()
+generator = ImageLoader()
 
 covid_images, covid_masks, non_covid_images, non_covid_masks = generator.generate_preprocessing_data(
     covid_path,
@@ -52,7 +52,7 @@ ImageSaver(cov_processed).save_to(cov_save_path)
 ImageSaver(non_cov_processed).save_to(non_cov_save_path)
 
 # %%Reading processed images
-generator = ImageGenerator()
+generator = ImageLoader()
 
 cov_processed_gen, non_cov_processed_gen = generator.generate_processed_data(
     covid_path, non_covid_path)

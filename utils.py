@@ -91,7 +91,7 @@ def model_path():
     return abs_path(__get_dataset_path("model_path"))
 
 
-def cov_images():
+def images():
     """Returns a list of all files with the extension "g" from the directory specified by the function cov_path(). """
     return glob(cov_path() + "/*g")
 

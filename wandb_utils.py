@@ -2,9 +2,9 @@ from ast import alias
 from typing import List
 import numpy as np
 import wandb
-from image import Image, ImageGenerator
+from image import Image, ImageLoader
 from utils import WB_ARTIFACT_COVID_PROCESSED_TAG, WB_ARTIFACT_COVID_TAG, WB_ARTIFACT_COVID_MASKS_TAG, WB_ARTIFACT_DATASET_TAG, WB_ARTIFACT_MODEL_TAG, WB_ARTIFACT_NORMAL_MASKS_TAG, WB_ARTIFACT_NORMAL_PROCESSED_TAG, WB_ARTIFACT_NORMAL_TAG, WB_JOB_HISTOGRAM_CHART, WB_JOB_LOAD_DATASET, WB_JOB_LOG_TABLE, WB_JOB_UPLOAD_DATASET, abs_path, cov_path, cov_masks_path, dataset_path, model_path, cov_processed_path, normal_masks_path, normal_path, normal_processed_path
-from utils import cov_processed, cov_images, cov_masks
+from utils import cov_processed, images, cov_masks
 from utils import normal_processed, normal_images, normal_masks
 from vhviv_tools.json import json
 
@@ -29,7 +29,7 @@ class WandbUtils:
 
         Returns:
         - any: The return value of the `callback` function.
-        
+
         The execute_with method initializes a new run using wandb.init() with the specified project_name and job_type. It then executes the provided callback function with the run object and returns the result of the callback. The job_type argument is a string that represents the type of job being executed, and it is used when calling wandb.init(). Once the callback function is executed, the method prints a message to indicate that the job is done. The method returns the result of the callback function, which can be of any type.
         """
         with (wandb.init(project=self.project_name, job_type=job_type)) as run:
@@ -82,7 +82,7 @@ class WandbUtils:
             })
 
             wandb_img_proc = wandb.Image(img_proc_data)
-            table.add_data(img.path, wandb_img, wandb_img_proc)
+            table.add_data(img.file_path, wandb_img, wandb_img_proc)
         wandb.log({tag + " Table": table})
 
     def __get_wb_artifact_path(self, tag: str) -> str:
@@ -92,7 +92,7 @@ class WandbUtils:
     def log_interactive_table(self):
         """ The function takes in the self parameter, which is a reference to the current instance of the class. Inside the function, a callback function is defined that takes in a run parameter. This callback function calls two other functions, __create_wandb_table and finish(), which create an interactive table in W&B with covid and non-covid images and masks, respectively. Finally, the execute_with() method is called with the callback and job_log_table parameters."""
         def callback(run):
-            self.__create_wandb_table(cov_images(), cov_masks(), cov_processed(), "covid")
+            self.__create_wandb_table(images(), cov_masks(), cov_processed(), "covid")
             self.__create_wandb_table(normal_images(), normal_masks(), normal_processed(), "non-covid")
             run.finish()
 
@@ -101,8 +101,8 @@ class WandbUtils:
     def log_histogram_chart_comparison(self):
         """This function creates a log of histogram chart comparison. It first creates two image generators from cov_processed_path and non_cov_processed_path. Then it creates two histogram data sets from the generated images, cov_hist_data and non_cov_hist_data. The data is then converted to a list of tuples and stored in cov_table and non_cov_table. Finally, the tables are logged in the run."""
         def callback(run):
-            cov_processed_gen = ImageGenerator().generate_from(cov_processed_path())
-            non_cov_processed_gen = ImageGenerator().generate_from(normal_processed_path())
+            cov_processed_gen = ImageLoader().load_from(cov_processed_path())
+            non_cov_processed_gen = ImageLoader().load_from(normal_processed_path())
 
             cov_hist_data = np.transpose([x.hist() for x in cov_processed_gen]).tolist()
             non_cov_hist_data = np.transpose([x.hist() for x in non_cov_processed_gen]).tolist()
@@ -145,7 +145,7 @@ class WandbUtils:
         """Loads a previously uploaded dataset artifact and downloads it to the local machine.
             Parameters:
                 dataset_artifact (WBDatasetArtifact): An instance of the WBDatasetArtifact class that specifies the artifact to be loaded.
-                
+
             Returns:
                 A string representing the local path where the artifact was downloaded to."""
         def callback(run):
