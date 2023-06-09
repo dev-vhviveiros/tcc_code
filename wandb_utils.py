@@ -1,9 +1,7 @@
-from ast import alias
-from typing import List
 import numpy as np
 import wandb
 from image import Image, ImageLoader
-from utils import WB_ARTIFACT_COVID_PROCESSED_TAG, WB_ARTIFACT_COVID_TAG, WB_ARTIFACT_COVID_MASKS_TAG, WB_ARTIFACT_DATASET_TAG, WB_ARTIFACT_MODEL_TAG, WB_ARTIFACT_NORMAL_MASKS_TAG, WB_ARTIFACT_NORMAL_PROCESSED_TAG, WB_ARTIFACT_NORMAL_TAG, WB_JOB_HISTOGRAM_CHART, WB_JOB_LOAD_DATASET, WB_JOB_LOG_TABLE, WB_JOB_UPLOAD_DATASET, abs_path, cov_path, cov_masks_path, dataset_path, model_path, cov_processed_path, normal_masks_path, normal_path, normal_processed_path
+from utils import WB_ARTIFACT_DATASET_TAG, WB_ARTIFACT_MODEL_TAG, WB_JOB_HISTOGRAM_CHART, WB_JOB_LOAD_DATASET, WB_JOB_LOG_TABLE, WB_JOB_UPLOAD_DATASET, abs_path, model_path, cov_processed_path, normal_processed_path
 from utils import cov_processed, images, cov_masks
 from utils import normal_processed, normal_images, normal_masks
 from vhviv_tools.json import json
@@ -18,24 +16,31 @@ class WandbUtils:
         self.project_name = config["wb_project_name"]
         self.project_path = config["wb_project_path"]
         self.wdb_alias = wdb_data_alias
-
-    def execute_with(self, callback, job_type) -> any:
+        self._run = wandb.init(project=self.project_name)
+        
+    def finish(self):
         """
-        Initialize a new run using the `wandb.init()` function with the specified `project_name` and `job_type`, and execute the provided `callback` function with the `run` object. Once the `callback` is executed, print a message to indicate that the job is done and return the result of the `callback`.
-
-        Args:
-        - callback (function): A function that takes a `run` object as an argument and performs some operations using the `wandb` library.
-        - job_type (str): A string that represents the type of job being executed.
+        Finish the current WandB run by calling the `finish` method of the `run` object. Must be called after finishing the run jobs.
 
         Returns:
-        - any: The return value of the `callback` function.
-
-        The execute_with method initializes a new run using wandb.init() with the specified project_name and job_type. It then executes the provided callback function with the run object and returns the result of the callback. The job_type argument is a string that represents the type of job being executed, and it is used when calling wandb.init(). Once the callback function is executed, the method prints a message to indicate that the job is done. The method returns the result of the callback function, which can be of any type.
+            None
         """
-        with (wandb.init(project=self.project_name, job_type=job_type)) as run:
-            result = callback(run)
-            print("JOB: <" + job_type + "> DONE!")
-            return result
+        self._run.finish()
+
+    def run_job(self, callback, job_type) -> any:
+        """
+        Run a job with the given callback function and job type.
+
+        Args:
+            callback (function): The callback function to run.
+            job_type (str): The type of job being run.
+
+        Returns:
+            any: The result of the callback function.
+        """
+        result = callback(self._run)
+        print("JOB: <" + job_type + "> DONE!")
+        return result
 
     def download_artifact(self, name, relative_path, alias='latest'):
         """This function downloads an artifact from the W&B API. 
@@ -94,9 +99,8 @@ class WandbUtils:
         def callback(run):
             self.__create_wandb_table(images(), cov_masks(), cov_processed(), "covid")
             self.__create_wandb_table(normal_images(), normal_masks(), normal_processed(), "non-covid")
-            run.finish()
 
-        self.execute_with(callback, WB_JOB_LOG_TABLE)
+        self.run_job(callback, WB_JOB_LOG_TABLE)
 
     def log_histogram_chart_comparison(self):
         """This function creates a log of histogram chart comparison. It first creates two image generators from cov_processed_path and non_cov_processed_path. Then it creates two histogram data sets from the generated images, cov_hist_data and non_cov_hist_data. The data is then converted to a list of tuples and stored in cov_table and non_cov_table. Finally, the tables are logged in the run."""
@@ -116,18 +120,9 @@ class WandbUtils:
             cov_table = wandb.Table(data=cov_hist_data, columns=["Intensity", "Value"])
             non_cov_table = wandb.Table(data=non_cov_hist_data, columns=["Intensity", "Value"])
 
-            # fields = {"x": "Intensity", "value": "Value"}
-
-            # cov_chart = wandb.plot_table(vega_spec_name="tcc/cov_chart",
-            #                              data_table=cov_table,
-            #                              fields=fields)
-            # non_cov_chart = wandb.plot_table(vega_spec_name="tcc/non_cov_chart",
-            #                                  data_table=non_cov_table,
-            #                                  fields=fields)
-
             run.log({"cov_chart": cov_table})
             run.log({"non_cov_chart": non_cov_table})
-        self.execute_with(callback, WB_JOB_HISTOGRAM_CHART)
+        self.run_job(callback, WB_JOB_HISTOGRAM_CHART)
 
     def upload_dataset_artifact(self, dataset_artifact: WBDatasetArtifact):
         """This method is used to upload a dataset artifact to W&B using the provided WBDatasetArtifact object. It creates a W&B artifact with the tag and type specified in the WBDatasetArtifact object and adds the directory specified in the object to the artifact. It then logs the artifact to W&B using the provided aliases.
@@ -139,7 +134,7 @@ class WandbUtils:
             artifact.add_dir(dataset_artifact.path)
             run.log_artifact(artifact, aliases=dataset_artifact.aliases + [self.wdb_alias])
 
-        self.execute_with(callback, WB_JOB_UPLOAD_DATASET)
+        self.run_job(callback, WB_JOB_UPLOAD_DATASET)
 
     def load_dataset_artifact(self, dataset_artifact: WBDatasetArtifact) -> str:
         """Loads a previously uploaded dataset artifact and downloads it to the local machine.
@@ -153,7 +148,7 @@ class WandbUtils:
             artifact = run.use_artifact(artifact_wdb_path, type=WB_ARTIFACT_DATASET_TAG)
             return artifact.download()
 
-        return self.execute_with(callback, WB_JOB_LOAD_DATASET)
+        return self.run_job(callback, WB_JOB_LOAD_DATASET)
 
     def load_model_artifact(self, run) -> str:
         """This function loads a model from a run in W&B. 

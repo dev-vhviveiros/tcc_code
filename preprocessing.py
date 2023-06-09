@@ -1,7 +1,7 @@
-from image import Image, LungMaskGenerator, ImageLoader, ImageProcessor, ImageSaver, ImageCharacteristics
+from image import LungMaskGenerator, ImageLoader, ImageProcessor, ImageSaver, ImageCharacteristics
 from utils import check_folder, abs_path, images, cov_masks_path, cov_processed_path, normal_images, normal_masks_path, normal_processed_path
 from wandb_utils import WandbUtils
-from wb_dataset_representation import WBCovidDatasetArtifact, WBCovidMaskDatasetArtifact, WBCovidProcessedDatasetArtifact, WBNormalDatasetArtifact, WBNormalMaskDatasetArtifact, WBNormalProcessedDatasetArtifact
+from wb_dataset_representation import WBCovidMaskDatasetArtifact, WBCovidProcessedDatasetArtifact, WBNormalMaskDatasetArtifact, WBNormalProcessedDatasetArtifact
 
 
 class Preprocessing:
@@ -12,11 +12,7 @@ class Preprocessing:
         self.normal_masks_path = normal_masks_path()
         self.wandb = wandb
 
-    def generate_lungs_masks(self):
-        # Download the artifacts
-        covid_artifact = self.wandb.load_dataset_artifact(WBCovidDatasetArtifact())
-        normal_artifact = self.wandb.load_dataset_artifact(WBNormalDatasetArtifact())
-
+    def generate_lungs_masks(self, covid_artifact, normal_artifact):
         # For re-creating the folders
         check_folder(self.covid_masks_path)
         check_folder(self.normal_masks_path)
@@ -29,15 +25,15 @@ class Preprocessing:
         self.wandb.upload_dataset_artifact(WBCovidMaskDatasetArtifact())
         self.wandb.upload_dataset_artifact(WBNormalMaskDatasetArtifact())
 
-    def process_images(self):
+    def process_images(self, *artifacts):
         """
         Process the COVID and normal images, and save the processed images to the specified paths.
         """
         # Load the dataset artifacts from wandb
-        covid_artifact = self.wandb.load_dataset_artifact(WBCovidDatasetArtifact())
-        covid_mask_artifact = self.wandb.load_dataset_artifact(WBCovidMaskDatasetArtifact())
-        normal_artifact = self.wandb.load_dataset_artifact(WBNormalDatasetArtifact())
-        normal_mask_artifact = self.wandb.load_dataset_artifact(WBNormalMaskDatasetArtifact())
+        covid_artifact = artifacts[0]
+        covid_mask_artifact = artifacts[1]
+        normal_artifact = artifacts[2]
+        normal_mask_artifact = artifacts[3]
 
         # Initialize the image processors with the dataset artifacts
         cov_processor = ImageProcessor(covid_artifact, covid_mask_artifact)

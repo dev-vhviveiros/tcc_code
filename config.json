@@ -1,8 +1,8 @@
 {
   "wandb": {
     "wb_project_owner": "vhviveiros",
-    "wb_project_name": "tcc",
-    "wb_project_path": "vhviveiros/tcc"
+    "wb_project_name": "tcc_code",
+    "wb_project_path": "vhviveiros/tcc_code"
   },
   "dataset": {
     "raw_datasets_path": "dataset",

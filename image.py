@@ -1,17 +1,14 @@
 import pandas as pd
-import tqdm as tq
 from concurrent.futures import ThreadPoolExecutor
 from glob import glob
 import cv2
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-import mahotas.features.texture as mt
 from typing import List
 from numba import njit, prange
 
 from sklearn.model_selection import train_test_split
-import tqdm
 from models import unet_model
 
 from utils import abs_path
@@ -126,21 +123,6 @@ class Image:
         result_file = abs_path(save_folder, "%s_histogram%s" % (filename, '.png'))
         plt.savefig(result_file)
         plt.close()
-
-    def haralick(self):
-        """
-        Calculate and return the mean of Haralick texture features for 4 types of adjacency.
-
-        Returns:
-            ndarray: Mean of the Haralick texture features.
-        """
-        # Calculate Haralick texture features for 4 types of adjacency
-        textures = mt.features.haralick(self.data)
-
-        # Take the mean of the Haralick texture features
-        ht_mean = np.mean(textures, axis=0)
-
-        return ht_mean
 
 class ImageTuple:
     """This is a class that represents an image and its corresponding mask image.
@@ -303,34 +285,6 @@ class ImageSaver:
 
 
 class ImageProcessor:
-    # def __init__(self, base_path: str, masks_path: str, divide: bool = False, reshape: bool = False, only_data: bool = False):
-    #     """
-    #     Create an ImageProcessor object with a base path and a mask path.
-
-    #     Args:
-    #         base_path (str): The path to the base images.
-    #         masks_path (str): The path to the mask images.
-    #         divide (bool): Optional. Default is False. Whether to divide the image into its RGB channels.
-    #         reshape (bool): Optional. Default is False. Whether to reshape the image into a specified shape.
-    #         only_data (bool): Optional. Default is False. Whether to return only the data of the image or the entire Image object.
-    #     """
-    #     self.base_path = base_path
-    #     self.masks_path = masks_path
-
-    #     # Create a ThreadPoolExecutor to generate the images in parallel.
-    #     with ThreadPoolExecutor() as executor:
-    #         # Submit a job to the executor to generate the base images.
-    #         # The job consists of calling the generate_from method of an ImageGenerator instance
-    #         images = executor.submit(ImageLoader().load_from,
-    #                                  self.base_path, divide, reshape, only_data).result()
-    #         self.images = list(images)
-
-    #         # Submit a job to the executor to generate the masks images.
-    #         # The job consists of calling the generate_from method of an ImageGenerator instance
-    #         masks = executor.submit(ImageLoader().load_from,
-    #                                 self.masks_path, divide, reshape, only_data).result()
-    #         self.masks = list(masks)
-    
     def __init__(self, base_path: str, masks_path: str, divide: bool = False, reshape: bool = False, only_data: bool = False):
         self.base_path = base_path
         self.masks_path = masks_path
@@ -380,21 +334,6 @@ class ImageProcessor:
         mask_filename = mask.get_filename()
         return "%s_mask%s" % (img_filename[0], img_filename[1]) == mask_filename[0] + mask_filename[1]
 
-    # def process(self):
-    #     """
-    #     Process all images and masks.
-
-    #     Returns:
-    #     - processed_images (list): list of processed image objects
-    #     """
-    #     # This line create pairs of [img, mask]
-    #     iterables = np.swapaxes([self.images, self.masks], 0, 1)
-    #     processed_images = []
-    #     for args in tq.tqdm(iterables):
-    #         assert (self.__check_mask_match(args[0], args[1]))
-    #         processed_image = self.__process_image(args)
-    #         processed_images.append(processed_image)
-    #     return processed_images
     def process(self):
         return list(map(lambda tuple: self.__process_image(tuple.image, tuple.mask), self.tuples))
     
