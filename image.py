@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+import mahotas as mt
 from typing import List
 from numba import njit, prange
 
@@ -123,6 +124,20 @@ class Image:
         result_file = abs_path(save_folder, "%s_histogram%s" % (filename, '.png'))
         plt.savefig(result_file)
         plt.close()
+    
+    def haralick(self):
+        """
+        Calculate and return the mean of Haralick texture features for 4 types of adjacency.
+        Returns:
+            ndarray: Mean of the Haralick texture features.
+        """
+        # Calculate Haralick texture features for 4 types of adjacency
+        textures = mt.features.haralick(self.data)
+
+        # Take the mean of the Haralick texture features
+        ht_mean = np.mean(textures, axis=0)
+
+        return ht_mean
 
 class ImageTuple:
     """This is a class that represents an image and its corresponding mask image.
@@ -427,7 +442,7 @@ class LungMaskGenerator:
         files = glob(self.folder_in + "/*g")
 
         # Generate predictions for images in input folder
-        gen = self.__load_images(files)
+        gen = self.__load_images(files) #TODO: check if this should be changed for the global loader
         results = model.predict_generator(gen, len(files), verbose=1)
 
         # Save segmented images to output folder
@@ -435,7 +450,8 @@ class LungMaskGenerator:
 
 
 class ImageCharacteristics:
-    def __init__(self, cov_images, normal_images):
+    def __init__(self, cov_images_artifact, normal_images_artifact):
+        #TODO: Fix docstrings
         """
         Initializes an ImageCharacteristics object with a list of covered and non-covered images.
 
@@ -443,6 +459,10 @@ class ImageCharacteristics:
         - cov_images (list): A list of Image objects representing the covered images.
         - normal_images (list): A list of Image objects representing the non-covered images.
         """
+        loader = ImageLoader()
+        cov_images = list(loader.load_from(cov_images_artifact, False, False, False))
+        normal_images = list(loader.load_from(normal_images_artifact, False, False, False))
+
         self.cov_images = cov_images
         self.normal_images = normal_images
 

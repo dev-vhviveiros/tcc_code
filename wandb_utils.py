@@ -1,12 +1,13 @@
+
 import numpy as np
 import wandb
 from image import Image, ImageLoader
-from utils import WB_ARTIFACT_DATASET_TAG, WB_ARTIFACT_MODEL_TAG, WB_JOB_HISTOGRAM_CHART, WB_JOB_LOAD_DATASET, WB_JOB_LOG_TABLE, WB_JOB_UPLOAD_DATASET, abs_path, model_path, cov_processed_path, normal_processed_path
+from utils import WB_ARTIFACT_DATASET_TAG, WB_ARTIFACT_MODEL_TAG, WB_JOB_HISTOGRAM_CHART, WB_JOB_LOAD_DATASET, WB_JOB_LOG_TABLE, WB_JOB_UPLOAD_DATASET, WB_ARTIFACT_CHARACTERISTICS_TAG, abs_path, model_path, cov_processed_path, normal_processed_path, characteristics_path
 from utils import cov_processed, images, cov_masks
 from utils import normal_processed, normal_images, normal_masks
 from vhviv_tools.json import json
 
-from wb_dataset_representation import WBDatasetArtifact
+from wb_dataset_representation import WBDatasetArtifact, WBCharacteristicsArtifact
 
 
 class WandbUtils:
@@ -17,7 +18,7 @@ class WandbUtils:
         self.project_path = config["wb_project_path"]
         self.wdb_alias = wdb_data_alias
         self._run = wandb.init(project=self.project_name)
-        
+
     def finish(self):
         """
         Finish the current WandB run by calling the `finish` method of the `run` object. Must be called after finishing the run jobs.
@@ -172,3 +173,19 @@ class WandbUtils:
         The function first uses the W&B artifact associated with the run to upload the model. It then returns the directory of the model."""
         model_artifact = self.generate_model_artifact()
         run.log_artifact(model_artifact, aliases=[self.wdb_alias])
+
+    def load_characteristics(self):
+        def callback(run):
+            artifact_wdb_path = WBCharacteristicsArtifact().wb_artifact_path(self.project_path, self.wdb_alias)
+            artifact = run.use_artifact(artifact_wdb_path, type=WB_ARTIFACT_CHARACTERISTICS_TAG)
+            return artifact.download()
+
+        return self.run_job(callback, WB_JOB_LOAD_DATASET)
+
+    def upload_characteristics(self):
+        def callback(run):
+            artifact = wandb.Artifact(WB_ARTIFACT_CHARACTERISTICS_TAG, type=WB_ARTIFACT_CHARACTERISTICS_TAG)
+            artifact.add_file(characteristics_path())
+            run.log_artifact(artifact, aliases=[WB_ARTIFACT_CHARACTERISTICS_TAG, self.wdb_alias])
+
+        self.run_job(callback, WB_JOB_UPLOAD_DATASET)

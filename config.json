@@ -12,6 +12,7 @@
     "normal_masks_path": "dataset/generated/normal_masks",
     "covid_processed_path": "dataset/generated/cov_processed",
     "normal_processed_path": "dataset/generated/normal_processed",
+    "characteristics_path":"characteristics.csv",
     "model_path": "model.h5"
   }
 }

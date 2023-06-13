@@ -1,5 +1,5 @@
 from image import LungMaskGenerator, ImageLoader, ImageProcessor, ImageSaver, ImageCharacteristics
-from utils import check_folder, abs_path, images, cov_masks_path, cov_processed_path, normal_images, normal_masks_path, normal_processed_path
+from utils import check_folder, abs_path, images, cov_masks_path, cov_processed_path, normal_images, normal_masks_path, normal_processed_path, characteristics_path
 from wandb_utils import WandbUtils
 from wb_dataset_representation import WBCovidMaskDatasetArtifact, WBCovidProcessedDatasetArtifact, WBNormalMaskDatasetArtifact, WBNormalProcessedDatasetArtifact
 
@@ -10,6 +10,7 @@ class Preprocessing:
         self.covid_masks_path = cov_masks_path()
         self.normal_path = normal_images()
         self.normal_masks_path = normal_masks_path()
+        self.characteristics_path = characteristics_path()
         self.wandb = wandb
 
     def generate_lungs_masks(self, covid_artifact, normal_artifact):
@@ -60,31 +61,7 @@ class Preprocessing:
         self.wandb.upload_dataset_artifact(WBCovidProcessedDatasetArtifact())
         self.wandb.upload_dataset_artifact(WBNormalProcessedDatasetArtifact())
 
-    def todo():
-        # TODO those should be in another place
-        # Reading processed images
-        generator = ImageLoader()
-
-        cov_processed_gen, normal_processed_gen = generator.generate_processed_data(
-            self.covid_path, self.normal_path)
-
-        cov_processed = list(cov_processed_gen.result())
-        normal_processed = list(normal_processed_gen.result())
-
-        # Saving characteristics
-        characteristics_file = 'characteristics.csv'
-        ic = ImageCharacteristics(cov_processed, normal_processed)
-        ic.save(characteristics_file)
-
-        # Saving histograms
-        cov_histograms_path = abs_path('cov_histograms')
-        normal_histograms_path = abs_path('normal_histograms')
-
-        check_folder(cov_histograms_path)
-        check_folder(normal_histograms_path)
-
-        for i in cov_processed:
-            i.save_hist(cov_histograms_path)
-
-        for i in normal_processed:
-            i.save_hist(normal_histograms_path)
+    def generate_characteristics(self, cov_processed_artifact, normal_processed_artifact):
+        ic = ImageCharacteristics(cov_processed_artifact, normal_processed_artifact)
+        ic.save(self.characteristics_path)
+        self.wandb.upload_characteristics()

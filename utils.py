@@ -20,6 +20,7 @@ WB_ARTIFACT_NORMAL_TAG = "normal"
 WB_ARTIFACT_NORMAL_MASKS_TAG = "normal_mask"
 WB_ARTIFACT_NORMAL_PROCESSED_TAG = "normal_processed"
 WB_ARTIFACT_MODEL_TAG = "model"
+WB_ARTIFACT_CHARACTERISTICS_TAG = "characteristics"
 
 
 def load_config(key: str) -> str:
@@ -119,3 +120,7 @@ def cov_processed():
 def normal_processed():
     """Returns a list of all files with the extension "g" from the directory specified by the function non-cov-processed-path()."""
     return glob(normal_processed_path() + "/*g")
+
+
+def characteristics_path():
+    return __get_dataset_path("characteristics_path")
