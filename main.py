@@ -6,7 +6,7 @@ Created on Wed May 27 15:12:32 2020
 """
 # %%Imports
 from wandb import Artifact
-from classifier import Classifier
+from old_classifier import Classifier
 from utils import abs_path, check_folder
 import joblib
 

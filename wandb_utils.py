@@ -175,6 +175,12 @@ class WandbUtils:
         run.log_artifact(model_artifact, aliases=[self.wdb_alias])
 
     def load_characteristics(self):
+        """
+        Downloads the characteristics artifact from the W&B run and returns it.
+
+        Returns:
+            The downloaded characteristics artifact.
+        """
         def callback(run):
             artifact_wdb_path = WBCharacteristicsArtifact().wb_artifact_path(self.project_path, self.wdb_alias)
             artifact = run.use_artifact(artifact_wdb_path, type=WB_ARTIFACT_CHARACTERISTICS_TAG)
@@ -183,6 +189,12 @@ class WandbUtils:
         return self.run_job(callback, WB_JOB_LOAD_DATASET)
 
     def upload_characteristics(self):
+        """
+        Uploads the characteristics file to the W&B run as an artifact.
+
+        Returns:
+            None.
+        """
         def callback(run):
             artifact = wandb.Artifact(WB_ARTIFACT_CHARACTERISTICS_TAG, type=WB_ARTIFACT_CHARACTERISTICS_TAG)
             artifact.add_file(characteristics_path())

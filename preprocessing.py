@@ -6,6 +6,12 @@ from wb_dataset_representation import WBCovidMaskDatasetArtifact, WBCovidProcess
 
 class Preprocessing:
     def __init__(self, wandb: WandbUtils):
+        """
+        Initialize the Preprocessing object.
+
+        Args:
+            wandb (WandbUtils): The WandbUtils object to use for logging.
+        """
         self.covid_path = images()
         self.covid_masks_path = cov_masks_path()
         self.normal_path = normal_images()
@@ -14,6 +20,16 @@ class Preprocessing:
         self.wandb = wandb
 
     def generate_lungs_masks(self, covid_artifact, normal_artifact):
+        """
+        Generate lung masks for the COVID and normal chest X-ray images.
+
+        Args:
+            covid_artifact (wandb.Artifact): The COVID chest X-ray images artifact.
+            normal_artifact (wandb.Artifact): The normal chest X-ray images artifact.
+
+        Returns:
+            None
+        """
         # For re-creating the folders
         check_folder(self.covid_masks_path)
         check_folder(self.normal_masks_path)
@@ -29,6 +45,11 @@ class Preprocessing:
     def process_images(self, *artifacts):
         """
         Process the COVID and normal images, and save the processed images to the specified paths.
+
+        Args:
+            *artifacts: The COVID and normal chest X-ray images artifacts and their corresponding mask artifacts.
+        Returns:
+            None
         """
         # Load the dataset artifacts from wandb
         covid_artifact = artifacts[0]
@@ -62,6 +83,16 @@ class Preprocessing:
         self.wandb.upload_dataset_artifact(WBNormalProcessedDatasetArtifact())
 
     def generate_characteristics(self, cov_processed_artifact, normal_processed_artifact):
+        """
+        Generate image characteristics for the processed COVID and normal chest X-ray images.
+
+        Args:
+            cov_processed_artifact (wandb.Artifact): The processed COVID chest X-ray images artifact.
+            normal_processed_artifact (wandb.Artifact): The processed normal chest X-ray images artifact.
+
+        Returns:
+            None
+        """
         ic = ImageCharacteristics(cov_processed_artifact, normal_processed_artifact)
         ic.save(self.characteristics_path)
         self.wandb.upload_characteristics()
