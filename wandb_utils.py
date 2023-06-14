@@ -2,13 +2,33 @@
 import numpy as np
 import wandb
 from image import Image, ImageLoader
-from utils import WB_ARTIFACT_DATASET_TAG, WB_ARTIFACT_MODEL_TAG, WB_JOB_HISTOGRAM_CHART, WB_JOB_LOAD_DATASET, WB_JOB_LOG_TABLE, WB_JOB_UPLOAD_DATASET, WB_ARTIFACT_CHARACTERISTICS_TAG, abs_path, model_path, cov_processed_path, normal_processed_path, characteristics_path
+from utils import abs_path, model_path, cov_processed_path, normal_processed_path, characteristics_path
 from utils import cov_processed, images, cov_masks
 from utils import normal_processed, normal_images, normal_masks
 from vhviv_tools.json import json
 
 from wb_dataset_representation import WBDatasetArtifact, WBCharacteristicsArtifact
 
+# Project variables (just to avoid repeating/misspelling them)
+# JOB VARIABLES:
+WB_JOB_UPLOAD_DATASET = "upload_dataset"
+WB_JOB_LOAD_DATASET = "load_dataset"
+WB_JOB_LOG_TABLE = "log_interactive_table"
+WB_JOB_HISTOGRAM_CHART = "log_histogram_chart"
+WB_JOB_LOAD_ARTIFACTS = "load_artifacts"
+WB_JOB_MODEL_FIT = "model_fit"
+WB_JOB_LOG_TRAINING_DATA = "log_training_data"
+
+# TAG VARIABLES:
+WB_ARTIFACT_DATASET_TAG = "dataset"
+WB_ARTIFACT_COVID_TAG = "covid"
+WB_ARTIFACT_MODEL_TAG = "model"
+WB_ARTIFACT_CHARACTERISTICS_TAG = "characteristics"
+WB_ARTIFACT_COVID_MASKS_TAG = "covid_mask"
+WB_ARTIFACT_COVID_PROCESSED_TAG = "covid_processed"
+WB_ARTIFACT_NORMAL_TAG = "normal"
+WB_ARTIFACT_NORMAL_MASKS_TAG = "normal_mask"
+WB_ARTIFACT_NORMAL_PROCESSED_TAG = "normal_processed"
 
 class WandbUtils:
     def __init__(self, wdb_data_alias):
@@ -201,3 +221,13 @@ class WandbUtils:
             run.log_artifact(artifact, aliases=[WB_ARTIFACT_CHARACTERISTICS_TAG, self.wdb_alias])
 
         self.run_job(callback, WB_JOB_UPLOAD_DATASET)
+        
+    def log_trainset(self, training_set, testing_set): #TODO
+        def callback(run):
+            raw_data = wandb.Artifact(
+                    WB_ARTIFACT_COVID_TAG, type=WB_ARTIFACT_DATASET_TAG,
+                    description="Raw covid dataset, split into train/test",
+                    metadata={"sizes": [len(dataset) for dataset in [training_set, testing_set]]})
+            run.log_artifact(raw_data)
+            
+        self.run_job(callback)

@@ -8,9 +8,9 @@ from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import confusion_matrix, make_scorer, f1_score
 from models import classifier_model
-from utils import WB_ARTIFACT_COVID_TAG, WB_ARTIFACT_DATASET_TAG, WB_JOB_LOAD_ARTIFACTS, WB_JOB_MODEL_FIT, check_folder, load_config, model_path
+from utils import check_folder, load_config, model_path
 from training_plot import TrainingPlot
-from wandb_utils import WandbUtils
+from wandb_utils import WB_ARTIFACT_COVID_TAG, WB_ARTIFACT_DATASET_TAG, WB_JOB_LOAD_ARTIFACTS, WB_JOB_MODEL_FIT, WandbUtils
 
 
 class Classifier:
@@ -25,41 +25,39 @@ class Classifier:
         if input_file is not None:
             self.load_dataset(input_file)
         if import_model is not None:
-            self.__import_model(import_model)
+            self._import_model(import_model)
 
-    def load_dataset(self, file, test_size=0.2):
-        """This code is used to load a dataset from a csv file and split it into test and training sets. It also normalizes the data. 
-                The function takes two parameters: 'file' which is the path to the csv file, and 'test_size' which is the size of the test set as a proportion of the total dataset. 
-                The function reads in the csv file using pandas, then splits it into entries and results. The entries are split into X_train and X_test, while results are split into y_train and y_test. 
-                Finally, the data is normalized using StandardScaler()."""
-        # Read csv
-        ctcs = pd.read_csv(file)
-        entries = ctcs.iloc[:, 1:269].values
-        results = ctcs.iloc[:, 269].values
+    def load_characteristics(self, characteristics_artifact, test_size=0.2):
+        """
+        Loads the image characteristics and labels from a CSV file, splits the data into training and testing sets, and normalizes the image characteristics using the StandardScaler function.
 
-        # Split into test and training
-        X_train, X_test, self.y_train, self.y_test = train_test_split(
-            entries, results, test_size=test_size, random_state=0)
+        Args:
+            characteristics_artifact (str): The path to the CSV file containing the image characteristics and labels.
+            test_size (float, optional): The proportion of the data to use for testing. Defaults to 0.2.
+        Returns:
+            None
+        """
+        # Read the CSV file containing the image characteristics
+        characteristics_df = pd.read_csv(characteristics_artifact)
 
-        # Normalize data
-        sc = StandardScaler()
-        self.X_train = sc.fit_transform(X_train)
-        self.X_test = sc.transform(X_test)
+        # Extract the input data (image characteristics) and output data (labels)
+        image_characteristics = characteristics_df.iloc[:, 1:269].values
+        labels = characteristics_df.iloc[:, 269].values
 
-    def log_artifacts(self):
-        """This code uses the Wandb library to log artifacts. It initializes a run with a project name of "tcc" and job type of "load-artifacts". It creates two datasets, training_set and test_set, from self.X_train, self.y_train, self.X_test, and self.y_test. It then creates an artifact called covid_dataset with type dataset and description "Raw covid dataset, split into train/test". The metadata for this artifact includes the sizes of the training set and test set datasets. Finally, it logs the artifact and finishes the run."""
-        with wandb.init(project=self.project_name, job_type=WB_JOB_LOAD_ARTIFACTS) as run:
-            training_set = [self.X_train, self.y_train]
-            test_set = [self.X_test, self.y_test]
+        # Split the data into training and testing sets
+        training_image_characteristics, testing_image_characteristics, training_labels, testing_labels = train_test_split(
+            image_characteristics, labels, test_size=test_size, random_state=0)
 
-            raw_data = wandb.Artifact(
-                WB_ARTIFACT_COVID_TAG, type=WB_ARTIFACT_DATASET_TAG,
-                description="Raw covid dataset, split into train/test",
-                metadata={"sizes": [len(dataset) for dataset in [training_set, test_set]]})
+        # Normalize the data using the StandardScaler function
+        scaler = StandardScaler()
+        normalized_training_characteristics = scaler.fit_transform(training_image_characteristics)
+        normalized_testing_characteristics = scaler.transform(testing_image_characteristics)
 
-            run.log_artifact(raw_data)
-
-            wandb.finish()
+        # Store the normalized data and labels in the classifier object
+        self.training_characteristics = normalized_training_characteristics
+        self.testing_characteristics = normalized_testing_characteristics
+        self.training_labels = training_labels
+        self.testing_labels = testing_labels
 
     def __format_validation(self, grid_cv):
         """This function takes in a grid_cv object as an argument and returns a dictionary containing the best results of the cross-validation for each metric. 
@@ -118,7 +116,7 @@ class Classifier:
             "batch_size": batch_size
         }
 
-        grid_search.fit(self.X_train, self.y_train,
+        grid_search.fit(self.normalized_training_image_characteristics, self.training_labels,
                         callbacks=[WandbCallback()])
 
         if save_path is not None and len(batch_size) + len(epochs) == 2:
@@ -159,8 +157,8 @@ class Classifier:
             #     log_dir=log_dir, histogram_freq=1)
             self.model = classifier_model(optimizer, activation, activation_output, units,
                                           ['accuracy', Precision(), AUC(), Recall()], loss)
-            self.model.fit(self.X_train, self.y_train, batch_size=batch_size, epochs=epochs, verbose=1, workers=12, use_multiprocessing=True,
-                           validation_data=(self.X_test, self.y_test), callbacks=[TrainingPlot(epochs), WandbCallback(data_type="histogram")])
+            self.model.fit(self.normalized_training_image_characteristics, self.training_labels, batch_size=batch_size, epochs=epochs, verbose=1, workers=12, use_multiprocessing=True,
+                           validation_data=(self.normalized_testing_image_characteristics, self.testing_labels), callbacks=[TrainingPlot(epochs), WandbCallback(data_type="histogram")])
             if export_model:
                 self.__export_model()
 
@@ -172,28 +170,28 @@ class Classifier:
 The first line calls the check_folder() function to check if the save_dir exists, and creates it if it does not. 
 The second line saves the model in the save_dir directory with the name "model.h5"."""
         check_folder(model_path(), False)
-        #self.model.save(save_dir + 'save_' + date_time + '.h5')
+        # self.model.save(save_dir + 'save_' + date_time + '.h5')
         self.model.save(model_path())
 
-    def __import_model(self, model_dir, optimizer='sgd', activation='relu', activation_output='sigmoid', loss='binary_crossentropy', units=180):
+    def _import_model(self, model_dir, optimizer='sgd', activation='relu', activation_output='sigmoid', loss='binary_crossentropy', units=180):
         """This function creates a classifier model with the given parameters and loads the weights from the given directory. 
-Parameters: 
-model_dir (string): The directory of the model weights to be loaded 
-optimizer (string): The optimizer algorithm used for training 
-activation (string): The activation function used in the model 
-activation_output (string): The activation function used for the output layer 
-loss (string): The loss function used for training 
-units (integer): Number of units in the hidden layers 
-Returns: self.model (object)"""
+        Parameters: 
+        model_dir (string): The directory of the model weights to be loaded 
+        optimizer (string): The optimizer algorithm used for training 
+        activation (string): The activation function used in the model 
+        activation_output (string): The activation function used for the output layer 
+        loss (string): The loss function used for training 
+        units (integer): Number of units in the hidden layers 
+        Returns: self.model (object)"""
         self.model = classifier_model(optimizer, activation, activation_output, units,
                                       ['accuracy', Precision(), AUC(), Recall()], loss)
         self.model.load_weights(model_dir)
         return self.model
 
     def __confusion_matrix(self):
-        """This code uses the model attribute from the instance to predict classes from the X_test attribute of the instance. It then uses the confusion_matrix function to compare the predicted classes with the y_test attribute of the instance and returns the matrix."""
-        pred = self.model.predict_classes(self.X_test)
-        matrix = confusion_matrix(pred, self.y_test)
+        """This code uses the model attribute from the instance to predict classes from the normalized_testing_image_characteristics attribute of the instance. It then uses the confusion_matrix function to compare the predicted classes with the testing_labels attribute of the instance and returns the matrix."""
+        pred = self.model.predict_classes(self.normalized_testing_image_characteristics)
+        matrix = confusion_matrix(pred, self.testing_labels)
         return (matrix)
 
     def plot_confusion_matrix(self,

@@ -3,25 +3,7 @@ import os
 from shutil import rmtree
 from vhviv_tools.json import json
 
-# Project variables (just to avoid repeating/misspelling them)
-# JOB VARIABLES:
-WB_JOB_UPLOAD_DATASET = "upload_dataset"
-WB_JOB_LOAD_DATASET = "load_dataset"
-WB_JOB_LOG_TABLE = "log_interactive_table"
-WB_JOB_HISTOGRAM_CHART = "log_histogram_chart"
-WB_JOB_LOAD_ARTIFACTS = "load_artifacts"
-WB_JOB_MODEL_FIT = "model_fit"
-# TAG VARIABLES:
-WB_ARTIFACT_DATASET_TAG = "dataset"
-WB_ARTIFACT_COVID_TAG = "covid"
-WB_ARTIFACT_COVID_MASKS_TAG = "covid_mask"
-WB_ARTIFACT_COVID_PROCESSED_TAG = "covid_processed"
-WB_ARTIFACT_NORMAL_TAG = "normal"
-WB_ARTIFACT_NORMAL_MASKS_TAG = "normal_mask"
-WB_ARTIFACT_NORMAL_PROCESSED_TAG = "normal_processed"
-WB_ARTIFACT_MODEL_TAG = "model"
-WB_ARTIFACT_CHARACTERISTICS_TAG = "characteristics"
-
+from wandb_utils import WB_ARTIFACT_DATASET_TAG
 
 def load_config(key: str) -> str:
     """This function loads the configuration from the JSON file called and returns the value associated with the key argument."""
@@ -123,4 +105,7 @@ def normal_processed():
 
 
 def characteristics_path():
+    """
+    Returns the path to the characteristics file.
+    """
     return __get_dataset_path("characteristics_path")

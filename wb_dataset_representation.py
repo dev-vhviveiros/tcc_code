@@ -1,6 +1,7 @@
 from typing import List
 
-from utils import WB_ARTIFACT_COVID_MASKS_TAG, WB_ARTIFACT_COVID_PROCESSED_TAG, WB_ARTIFACT_COVID_TAG, WB_ARTIFACT_NORMAL_MASKS_TAG, WB_ARTIFACT_NORMAL_PROCESSED_TAG, WB_ARTIFACT_NORMAL_TAG, WB_ARTIFACT_CHARACTERISTICS_TAG, cov_path, cov_processed_path, cov_masks_path, normal_masks_path, normal_path, normal_processed_path, characteristics_path
+from utils import cov_path, cov_processed_path, cov_masks_path, normal_masks_path, normal_path, normal_processed_path, characteristics_path
+from wandb_utils import WB_ARTIFACT_CHARACTERISTICS_TAG, WB_ARTIFACT_COVID_MASKS_TAG, WB_ARTIFACT_COVID_PROCESSED_TAG, WB_ARTIFACT_COVID_TAG, WB_ARTIFACT_NORMAL_MASKS_TAG, WB_ARTIFACT_NORMAL_PROCESSED_TAG, WB_ARTIFACT_NORMAL_TAG
 
 
 class WBDatasetArtifact:
