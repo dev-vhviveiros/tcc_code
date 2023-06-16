@@ -2,8 +2,8 @@
 import numpy as np
 import wandb
 from image import Image, ImageLoader
-from utils import abs_path, model_path, cov_processed_path, normal_processed_path, characteristics_path
-from utils import cov_processed, images, cov_masks
+from utils import CHARACTERISTICS_TAG, COVID_TAG, DATASET_TAG, MODEL_TAG, abs_path, model_path, cov_processed_path, normal_processed_path, characteristics_path
+from utils import cov_processed, cov_images, cov_masks
 from utils import normal_processed, normal_images, normal_masks
 from vhviv_tools.json import json
 
@@ -19,16 +19,6 @@ WB_JOB_LOAD_ARTIFACTS = "load_artifacts"
 WB_JOB_MODEL_FIT = "model_fit"
 WB_JOB_LOG_TRAINING_DATA = "log_training_data"
 
-# TAG VARIABLES:
-WB_ARTIFACT_DATASET_TAG = "dataset"
-WB_ARTIFACT_COVID_TAG = "covid"
-WB_ARTIFACT_MODEL_TAG = "model"
-WB_ARTIFACT_CHARACTERISTICS_TAG = "characteristics"
-WB_ARTIFACT_COVID_MASKS_TAG = "covid_mask"
-WB_ARTIFACT_COVID_PROCESSED_TAG = "covid_processed"
-WB_ARTIFACT_NORMAL_TAG = "normal"
-WB_ARTIFACT_NORMAL_MASKS_TAG = "normal_mask"
-WB_ARTIFACT_NORMAL_PROCESSED_TAG = "normal_processed"
 
 class WandbUtils:
     def __init__(self, wdb_data_alias):
@@ -115,10 +105,10 @@ class WandbUtils:
         """This function gets the path of a model artifact from the project. The function returns a string in the format 'project_path/artifact_model_tag:wdb_data_alias'."""
         return '%s/%s:%s' % (self.project_path, tag, self.wdb_alias)
 
-    def log_interactive_table(self):
+    def log_table(self):
         """ The function takes in the self parameter, which is a reference to the current instance of the class. Inside the function, a callback function is defined that takes in a run parameter. This callback function calls two other functions, __create_wandb_table and finish(), which create an interactive table in W&B with covid and non-covid images and masks, respectively. Finally, the execute_with() method is called with the callback and job_log_table parameters."""
         def callback(run):
-            self.__create_wandb_table(images(), cov_masks(), cov_processed(), "covid")
+            self.__create_wandb_table(cov_images(), cov_masks(), cov_processed(), "covid")
             self.__create_wandb_table(normal_images(), normal_masks(), normal_processed(), "non-covid")
 
         self.run_job(callback, WB_JOB_LOG_TABLE)
@@ -151,7 +141,7 @@ class WandbUtils:
         Parameters:
             dataset_artifact (WBDatasetArtifact): An instance of WBDatasetArtifact class that encapsulates information about the dataset artifact to upload."""
         def callback(run):
-            artifact = wandb.Artifact(dataset_artifact.tag, type=WB_ARTIFACT_DATASET_TAG)
+            artifact = wandb.Artifact(dataset_artifact.tag, type=DATASET_TAG)
             artifact.add_dir(dataset_artifact.path)
             run.log_artifact(artifact, aliases=dataset_artifact.aliases + [self.wdb_alias])
 
@@ -166,7 +156,7 @@ class WandbUtils:
                 A string representing the local path where the artifact was downloaded to."""
         def callback(run):
             artifact_wdb_path = dataset_artifact.wb_artifact_path(self.project_path, self.wdb_alias)
-            artifact = run.use_artifact(artifact_wdb_path, type=WB_ARTIFACT_DATASET_TAG)
+            artifact = run.use_artifact(artifact_wdb_path, type=DATASET_TAG)
             return artifact.download()
 
         return self.run_job(callback, WB_JOB_LOAD_DATASET)
@@ -175,15 +165,15 @@ class WandbUtils:
         """This function loads a model from a run in W&B. 
         It takes in a parameter 'run' which is the run from which the model should be loaded. 
         The function first uses the W&B artifact associated with the run to download the model. It then returns the directory of the model."""
-        artifact_wdb_path = self.__get_wb_artifact_path(WB_ARTIFACT_MODEL_TAG)
-        dataset_artifact = run.use_artifact(artifact_wdb_path, type=WB_ARTIFACT_MODEL_TAG)
+        artifact_wdb_path = self.__get_wb_artifact_path(MODEL_TAG)
+        dataset_artifact = run.use_artifact(artifact_wdb_path, type=MODEL_TAG)
         model_dir = dataset_artifact.download()
 
         return model_dir
 
     def generate_model_artifact(self):
         """This code defines a function called generate_model_artifact that takes in an object of the class it is defined in as a parameter. The function creates an artifact object from the Wandb library, with the tag given by the self.artifact_model_tag parameter and type set to "model". It then adds a file located at model_path to the artifact and returns it."""
-        model = wandb.Artifact(WB_ARTIFACT_MODEL_TAG, type=WB_ARTIFACT_MODEL_TAG)
+        model = wandb.Artifact(MODEL_TAG, type=MODEL_TAG)
         model.add_file(model_path())
         return model
 
@@ -203,7 +193,7 @@ class WandbUtils:
         """
         def callback(run):
             artifact_wdb_path = WBCharacteristicsArtifact().wb_artifact_path(self.project_path, self.wdb_alias)
-            artifact = run.use_artifact(artifact_wdb_path, type=WB_ARTIFACT_CHARACTERISTICS_TAG)
+            artifact = run.use_artifact(artifact_wdb_path, type=CHARACTERISTICS_TAG)
             return artifact.download()
 
         return self.run_job(callback, WB_JOB_LOAD_DATASET)
@@ -216,18 +206,18 @@ class WandbUtils:
             None.
         """
         def callback(run):
-            artifact = wandb.Artifact(WB_ARTIFACT_CHARACTERISTICS_TAG, type=WB_ARTIFACT_CHARACTERISTICS_TAG)
+            artifact = wandb.Artifact(CHARACTERISTICS_TAG, type=CHARACTERISTICS_TAG)
             artifact.add_file(characteristics_path())
-            run.log_artifact(artifact, aliases=[WB_ARTIFACT_CHARACTERISTICS_TAG, self.wdb_alias])
+            run.log_artifact(artifact, aliases=[CHARACTERISTICS_TAG, self.wdb_alias])
 
         self.run_job(callback, WB_JOB_UPLOAD_DATASET)
-        
-    def log_trainset(self, training_set, testing_set): #TODO
+
+    def log_trainset(self, training_set, testing_set):  # TODO
         def callback(run):
             raw_data = wandb.Artifact(
-                    WB_ARTIFACT_COVID_TAG, type=WB_ARTIFACT_DATASET_TAG,
-                    description="Raw covid dataset, split into train/test",
-                    metadata={"sizes": [len(dataset) for dataset in [training_set, testing_set]]})
+                COVID_TAG, type=DATASET_TAG,
+                description="Raw covid dataset, split into train/test",
+                metadata={"sizes": [len(dataset) for dataset in [training_set, testing_set]]})
             run.log_artifact(raw_data)
-            
+
         self.run_job(callback)

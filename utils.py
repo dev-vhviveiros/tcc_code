@@ -3,7 +3,17 @@ import os
 from shutil import rmtree
 from vhviv_tools.json import json
 
-from wandb_utils import WB_ARTIFACT_DATASET_TAG
+# TAG VARIABLES:
+DATASET_TAG = "dataset"
+COVID_TAG = "covid"
+MODEL_TAG = "model"
+CHARACTERISTICS_TAG = "characteristics"
+COVID_MASKS_TAG = "covid_mask"
+COVID_PROCESSED_TAG = "covid_processed"
+NORMAL_TAG = "normal"
+NORMAL_MASKS_TAG = "normal_mask"
+NORMAL_PROCESSED_TAG = "normal_processed"
+
 
 def load_config(key: str) -> str:
     """This function loads the configuration from the JSON file called and returns the value associated with the key argument."""
@@ -12,7 +22,7 @@ def load_config(key: str) -> str:
 
 def __get_dataset_path(value: str) -> str:
     """The function reads the "config.json" file and returns the path for the specified dataset from the "datasets" key in the config file."""
-    return load_config(WB_ARTIFACT_DATASET_TAG)[value]
+    return load_config(DATASET_TAG)[value]
 
 
 def check_folder(folder, remove_previous=True):
@@ -71,10 +81,10 @@ def normal_processed_path():
 
 def model_path():
     """This function returns the absolute path of the model."""
-    return abs_path(__get_dataset_path("model_path"))
+    return load_config("others")["model_path"]
 
 
-def images():
+def cov_images():
     """Returns a list of all files with the extension "g" from the directory specified by the function cov_path(). """
     return glob(cov_path() + "/*g")
 
@@ -108,4 +118,4 @@ def characteristics_path():
     """
     Returns the path to the characteristics file.
     """
-    return __get_dataset_path("characteristics_path")
+    return load_config("other")["characteristics_path"]

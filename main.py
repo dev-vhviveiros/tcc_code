@@ -13,13 +13,13 @@ import joblib
 from wandb_utils import WandbUtils
 
 # Upload artifacts
-WandbUtils.log_interactive_table()
+WandbUtils.log_table()
 
 # Read data
-#cf = Classifier(input_file='characteristics.csv')
+# cf = Classifier(input_file='characteristics.csv')
 
 # %%Model validation
-#val = cf.validation(batch_size=[16, 20, 24], epochs=[250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000, 2000], units=[150, 180, 200, 220, 250, 300, 325], cv=10)
+# val = cf.validation(batch_size=[16, 20, 24], epochs=[250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000, 2000], units=[150, 180, 200, 220, 250, 300, 325], cv=10)
 # , 'sgd', 'adadelta'
 
 # val = cf.validation(batch_size=[16], epochs=[100], units=[180, 220],

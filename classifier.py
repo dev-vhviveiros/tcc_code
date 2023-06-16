@@ -8,9 +8,9 @@ from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import confusion_matrix, make_scorer, f1_score
 from models import classifier_model
-from utils import check_folder, load_config, model_path
+from utils import DATASET_TAG, check_folder, load_config, model_path
 from training_plot import TrainingPlot
-from wandb_utils import WB_ARTIFACT_COVID_TAG, WB_ARTIFACT_DATASET_TAG, WB_JOB_LOAD_ARTIFACTS, WB_JOB_MODEL_FIT, WandbUtils
+from wandb_utils import WB_JOB_MODEL_FIT, WandbUtils
 
 
 class Classifier:
@@ -145,7 +145,7 @@ class Classifier:
         with (wandb.init(project=self.project_name, job_type=WB_JOB_MODEL_FIT, magic=True, name="fit__" + date_time,
                          config=wb_config)) as run:
             generated_dataset = wandb.Artifact(
-                "characteristics", type=WB_ARTIFACT_DATASET_TAG)
+                "characteristics", type=DATASET_TAG)
             generated_dataset.add_file(
                 "characteristics.csv")
             run.log_artifact(generated_dataset)
