@@ -116,23 +116,49 @@ class WandbUtils:
     def log_histogram_chart_comparison(self):
         """This function creates a log of histogram chart comparison. It first creates two image generators from cov_processed_path and non_cov_processed_path. Then it creates two histogram data sets from the generated images, cov_hist_data and non_cov_hist_data. The data is then converted to a list of tuples and stored in cov_table and non_cov_table. Finally, the tables are logged in the run."""
         def callback(run):
+            # Load the image data for the cov and non-cov images
             cov_processed_gen = ImageLoader().load_from(cov_processed_path())
             non_cov_processed_gen = ImageLoader().load_from(normal_processed_path())
+            
+            # Define a helper function to generate histogram data for an image generator
+            def generate_histogram_data(image_gen):
+                # Define the length of the histogram
+                HISTOGRAM_LENGTH = 254
+                # Initialize the histogram data to all zeros
+                hist_data = [0] * HISTOGRAM_LENGTH
+                # Loop over each image in the generator
+                for _, img in enumerate(image_gen):
+                    # Generate the histogram for the image
+                    hist = img.hist()
+                    # Add the histogram data to the overall histogram data
+                    hist_data += hist[:-1]
+                # Convert the histogram data to a list of tuples
+                # where each tuple contains the intensity value and the corresponding histogram value
+                return [(i, val) for i, val in enumerate(hist_data)]
 
-            cov_hist_data = np.transpose([x.hist() for x in cov_processed_gen]).tolist()
-            non_cov_hist_data = np.transpose([x.hist() for x in non_cov_processed_gen]).tolist()
+            # Generate histogram data for the cov and non-cov images
+            cov_hist_data = generate_histogram_data(cov_processed_gen)
+            non_cov_hist_data = generate_histogram_data(non_cov_processed_gen)
 
-            cov_hist_data = list(zip([*range(1, 256)], cov_hist_data))
-            non_cov_hist_data = list(zip([*range(1, 256)], non_cov_hist_data))
-
-            cov_hist_data = [list(x) for x in list(cov_hist_data)]
-            non_cov_hist_data = [list(x) for x in list(non_cov_hist_data)]
-
+            # Create wandb.Table objects to represent the histogram data
             cov_table = wandb.Table(data=cov_hist_data, columns=["Intensity", "Value"])
             non_cov_table = wandb.Table(data=non_cov_hist_data, columns=["Intensity", "Value"])
 
-            run.log({"cov_chart": cov_table})
-            run.log({"non_cov_chart": non_cov_table})
+            # Create line and scatter plots for the histogram data
+            cov_line_plot = wandb.plot.line(cov_table, x="Intensity", y="Value", title="Cov Line Plot")
+            non_cov_line_plot = wandb.plot.line(non_cov_table, x="Intensity", y="Value", title="Normal Line Plot")
+            cov_scatter_plot = wandb.plot.scatter(cov_table, x="Intensity", y="Value", title="Cov Line Plot")
+            non_cov_scatter_plot = wandb.plot.scatter(non_cov_table, x="Intensity", y="Value", title="Normal Line Plot")
+
+            # Log the histogram data and plots to the wandb run
+            run.log({"cov_hist_data": cov_table,
+                    "non_cov_hist_data": non_cov_table,
+                    "cov_line_plot": cov_line_plot,
+                    "non_cov_line_plot": non_cov_line_plot,
+                    "cov_scatter_plot": cov_scatter_plot,
+                    "non_cov_scatter_plot": non_cov_scatter_plot})
+
+        # Run the callback function as a job with a specified job type
         self.run_job(callback, WB_JOB_HISTOGRAM_CHART)
 
     def upload_dataset_artifact(self, dataset_artifact: WBDatasetArtifact):
