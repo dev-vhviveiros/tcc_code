@@ -2,7 +2,7 @@
   "wandb": {
     "wb_project_owner": "vhviveiros",
     "wb_project_name": "tcc_code",
-    "wb_project_path": "vhviveiros/tcc_code"
+    "wb_project_path": "${wb_project_owner}/${wb_project_name}"
   },
   "dataset": {
     "raw_datasets_path": "dataset",
@@ -14,6 +14,7 @@
     "normal_processed_path": "dataset/generated/normal_processed"
   },
   "other": {
+    "generated_csv_file": "characteristics.csv",
     "characteristics_path": "characteristics.csv",
     "model_path": "model.h5"
   }

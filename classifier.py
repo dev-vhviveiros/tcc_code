@@ -8,7 +8,7 @@ from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import confusion_matrix, make_scorer, f1_score
 from models import classifier_model
-from utils import DATASET_TAG, check_folder, load_config, model_path
+from utils import DATASET_TAG, check_folder, load_config, load_wdb_config, model_path
 from training_plot import TrainingPlot
 from wandb_utils import WB_JOB_MODEL_FIT, WandbUtils
 
@@ -20,14 +20,17 @@ class Classifier:
     import_model = if you saved a model and want to import it
     """
 
-    def __init__(self, input_file=None, import_model=None):
-        self.project_name = load_config("wb_project_name")
-        if input_file is not None:
-            self.load_dataset(input_file)
-        if import_model is not None:
-            self._import_model(import_model)
+    def __init__(self, characteristics_artifact: str = None, model_artifact: str = None, test_pool: float = 0.2):
+        self.wdb_project = load_wdb_config("wb_project_name")
+        if characteristics_artifact is not None:
+            self.__load_characteristics(characteristics_artifact, test_pool)
+        if model_artifact is not None:
+            self.__import_model(model_artifact)
 
-    def load_characteristics(self, characteristics_artifact, test_size=0.2):
+        print("Initializing classifier project: %s with:\n Characteristics: %s\nModel: %s" %
+              (self.wdb_project, characteristics_artifact, model_artifact))
+
+    def __load_characteristics(self, characteristics_artifact, test_size=0.2):
         """
         Loads the image characteristics and labels from a CSV file, splits the data into training and testing sets, and normalizes the image characteristics using the StandardScaler function.
 
@@ -39,27 +42,23 @@ class Classifier:
         """
         # Read the CSV file containing the image characteristics
         characteristics_df = pd.read_csv(characteristics_artifact)
+        print("SHAPE:" + str(characteristics_df.shape))
 
         # Extract the input data (image characteristics) and output data (labels)
-        image_characteristics = characteristics_df.iloc[:, 1:269].values
-        labels = characteristics_df.iloc[:, 269].values
+        # wARN: Be careful about the change: 1:269 -> 0:268
+        image_characteristics = characteristics_df.iloc[:, 0:268].values
+        labels = characteristics_df.iloc[:, 268].values
 
         # Split the data into training and testing sets
-        training_image_characteristics, testing_image_characteristics, training_labels, testing_labels = train_test_split(
+        training_image_characteristics, testing_image_characteristics, self.training_labels, self.testing_labels = train_test_split(
             image_characteristics, labels, test_size=test_size, random_state=0)
 
         # Normalize the data using the StandardScaler function
         scaler = StandardScaler()
-        normalized_training_characteristics = scaler.fit_transform(training_image_characteristics)
-        normalized_testing_characteristics = scaler.transform(testing_image_characteristics)
+        self.normalized_training_characteristics = scaler.fit_transform(training_image_characteristics)
+        self.normalized_testing_characteristics = scaler.transform(testing_image_characteristics)
 
-        # Store the normalized data and labels in the classifier object
-        self.training_characteristics = normalized_training_characteristics
-        self.testing_characteristics = normalized_testing_characteristics
-        self.training_labels = training_labels
-        self.testing_labels = testing_labels
-
-    def __format_validation(self, grid_cv):
+    def __format_validation(self, grid_cv):  # TODO: what does this do
         """This function takes in a grid_cv object as an argument and returns a dictionary containing the best results of the cross-validation for each metric. 
                 The key_filter function filters out the keys in grid_cv.cv_results_ that start with 'split' and contain the name of a metric, then the dictionary is created by looping through each metric and adding its best result to the dictionary."""
         def key_filter(key):
@@ -88,8 +87,8 @@ class Classifier:
         classifier = KerasClassifier(build_fn=classifier_model)
 
         parameters = {'batch_size': batch_size,
-                      'epochs': epochs,
                       'units': units,
+                      'epochs': epochs,
                       'optimizer': optimizer,
                       'activation': activation,
                       'activationOutput': activation_output,
@@ -110,14 +109,13 @@ class Classifier:
                                    return_train_score=False,
                                    cv=cv)
 
-        wandb.config = {
-            "learning_rate": 0.001,
-            "epochs": epochs,
-            "batch_size": batch_size
-        }
+        # wandb.config = {
+        #     "learning_rate": 0.001,
+        #     "epochs": epochs,
+        #     "batch_size": batch_size
+        # }
 
-        grid_search.fit(self.normalized_training_image_characteristics, self.training_labels,
-                        callbacks=[WandbCallback()])
+        grid_search.fit(self.normalized_training_characteristics, self.training_labels)
 
         if save_path is not None and len(batch_size) + len(epochs) == 2:
             self.__save_validation(grid_search, save_path)
@@ -142,7 +140,7 @@ class Classifier:
             "loss": loss
         }
 
-        with (wandb.init(project=self.project_name, job_type=WB_JOB_MODEL_FIT, magic=True, name="fit__" + date_time,
+        with (wandb.init(project=self.wdb_project, job_type=WB_JOB_MODEL_FIT, magic=True, name="fit__" + date_time,
                          config=wb_config)) as run:
             generated_dataset = wandb.Artifact(
                 "characteristics", type=DATASET_TAG)
@@ -173,7 +171,7 @@ The second line saves the model in the save_dir directory with the name "model.h
         # self.model.save(save_dir + 'save_' + date_time + '.h5')
         self.model.save(model_path())
 
-    def _import_model(self, model_dir, optimizer='sgd', activation='relu', activation_output='sigmoid', loss='binary_crossentropy', units=180):
+    def __import_model(self, model_dir, optimizer='sgd', activation='relu', activation_output='sigmoid', loss='binary_crossentropy', units=180):
         """This function creates a classifier model with the given parameters and loads the weights from the given directory. 
         Parameters: 
         model_dir (string): The directory of the model weights to be loaded 

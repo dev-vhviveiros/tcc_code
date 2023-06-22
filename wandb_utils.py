@@ -2,7 +2,7 @@
 import numpy as np
 import wandb
 from image import Image, ImageLoader
-from utils import CHARACTERISTICS_TAG, COVID_TAG, DATASET_TAG, MODEL_TAG, abs_path, model_path, cov_processed_path, normal_processed_path, characteristics_path
+from utils import CHARACTERISTICS_TAG, COVID_TAG, DATASET_TAG, MODEL_TAG, abs_path, model_path, cov_processed_path, normal_processed_path, characteristics_path, load_config
 from utils import cov_processed, cov_images, cov_masks
 from utils import normal_processed, normal_images, normal_masks
 from vhviv_tools.json import json
@@ -119,7 +119,7 @@ class WandbUtils:
             # Load the image data for the cov and non-cov images
             cov_processed_gen = ImageLoader().load_from(cov_processed_path())
             non_cov_processed_gen = ImageLoader().load_from(normal_processed_path())
-            
+
             # Define a helper function to generate histogram data for an image generator
             def generate_histogram_data(image_gen):
                 # Define the length of the histogram
@@ -153,10 +153,10 @@ class WandbUtils:
             # Log the histogram data and plots to the wandb run
             run.log({"cov_hist_data": cov_table,
                     "non_cov_hist_data": non_cov_table,
-                    "cov_line_plot": cov_line_plot,
-                    "non_cov_line_plot": non_cov_line_plot,
-                    "cov_scatter_plot": cov_scatter_plot,
-                    "non_cov_scatter_plot": non_cov_scatter_plot})
+                     "cov_line_plot": cov_line_plot,
+                     "non_cov_line_plot": non_cov_line_plot,
+                     "cov_scatter_plot": cov_scatter_plot,
+                     "non_cov_scatter_plot": non_cov_scatter_plot})
 
         # Run the callback function as a job with a specified job type
         self.run_job(callback, WB_JOB_HISTOGRAM_CHART)
@@ -220,7 +220,7 @@ class WandbUtils:
         def callback(run):
             artifact_wdb_path = WBCharacteristicsArtifact().wb_artifact_path(self.project_path, self.wdb_alias)
             artifact = run.use_artifact(artifact_wdb_path, type=CHARACTERISTICS_TAG)
-            return artifact.download()
+            return artifact.download() + "/" + load_config("other")["generated_csv_file"]
 
         return self.run_job(callback, WB_JOB_LOAD_DATASET)
 
