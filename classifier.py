@@ -8,7 +8,7 @@ from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import confusion_matrix, make_scorer, f1_score
 from models import classifier_model
-from utils import DATASET_TAG, check_folder, load_config, load_wdb_config, model_path
+from utils import DATASET_TAG, check_folder, load_config, model_path
 from training_plot import TrainingPlot
 from wandb_utils import WB_JOB_MODEL_FIT, WandbUtils
 
@@ -21,7 +21,7 @@ class Classifier:
     """
 
     def __init__(self, characteristics_artifact: str = None, model_artifact: str = None, test_pool: float = 0.2):
-        self.wdb_project = load_wdb_config("wb_project_name")
+        self.wdb_project = load_config("wb_project_name")
         if characteristics_artifact is not None:
             self.__load_characteristics(characteristics_artifact, test_pool)
         if model_artifact is not None:

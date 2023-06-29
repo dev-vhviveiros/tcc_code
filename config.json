@@ -1,21 +1,16 @@
 {
-  "wandb": {
-    "wb_project_owner": "vhviveiros",
-    "wb_project_name": "tcc_code",
-    "wb_project_path": "${wb_project_owner}/${wb_project_name}"
-  },
-  "dataset": {
-    "raw_datasets_path": "dataset",
-    "raw_covid_dataset_path": "dataset/covid",
-    "raw_normal_path": "dataset/normal",
-    "covid_masks_path": "dataset/generated/cov_masks",
-    "normal_masks_path": "dataset/generated/normal_masks",
-    "covid_processed_path": "dataset/generated/cov_processed",
-    "normal_processed_path": "dataset/generated/normal_processed"
-  },
-  "other": {
-    "generated_csv_file": "characteristics.csv",
-    "characteristics_path": "characteristics.csv",
-    "model_path": "model.h5"
-  }
+  "wb_project_owner": "vhviveiros",
+  "wb_project_name": "tcc_code",
+  "wb_project_path": "${wb_project_owner}/${wb_project_name}",
+  "raw_datasets_path": "dataset",
+  "raw_covid_dataset_path": "${raw_datasets_path}/covid",
+  "raw_normal_path": "${raw_datasets_path}/normal",
+  "generated_path": "${raw_datasets_path}/generated",
+  "covid_masks_path": "${generated_path}/cov_masks",
+  "normal_masks_path": "${generated_path}/normal_masks",
+  "covid_processed_path": "${generated_path}/cov_processed",
+  "normal_processed_path": "${generated_path}/normal_processed",
+  "generated_csv_file": "characteristics.csv",
+  "characteristics_path": "${generated_csv_file}",
+  "model_path": "model.h5"
 }

@@ -1,5 +1,5 @@
 from image import LungMaskGenerator, ImageLoader, ImageProcessor, ImageSaver, ImageCharacteristics
-from utils import check_folder, abs_path, cov_images, cov_masks_path, cov_processed_path, normal_images, normal_masks_path, normal_processed_path, characteristics_path
+from utils import check_folder, abs_path, cov_images, normal_images
 from wandb_utils import WandbUtils
 from wb_dataset_representation import WBCovidMaskDatasetArtifact, WBCovidProcessedDatasetArtifact, WBNormalMaskDatasetArtifact, WBNormalProcessedDatasetArtifact
 

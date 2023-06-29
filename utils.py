@@ -1,7 +1,7 @@
 from glob import glob
 import os
 from shutil import rmtree
-from vhviv_tools.json import json
+from vhviv_tools import json
 
 # TAG VARIABLES:
 DATASET_TAG = "dataset"
@@ -13,6 +13,7 @@ COVID_PROCESSED_TAG = "covid_processed"
 NORMAL_TAG = "normal"
 NORMAL_MASKS_TAG = "normal_mask"
 NORMAL_PROCESSED_TAG = "normal_processed"
+CONFIG_JSON = None
 
 
 def load_config(key: str) -> str:
@@ -25,33 +26,10 @@ def load_config(key: str) -> str:
     Returns:
         The value associated with the key in the configuration file.
     """
-    return json("config.json")[key]
-
-
-def load_wdb_config(key: str) -> str:
-    """
-    Load a value from the configuration file, with the "wandb" key.
-
-    Args:
-        key: The key to look up in the W&B configuration.
-
-    Returns:
-        The value associated with the key in the W&B configuration.
-    """
-    return load_config("wandb")[key]
-
-
-def get_dataset_path(value: str) -> str:
-    """
-    Get the path to a dataset.
-
-    Args:
-        value: The name of the dataset to get the path for.
-
-    Returns:
-        The absolute path to the specified dataset.
-    """
-    return load_config(DATASET_TAG)[value]
+    global CONFIG_JSON
+    if not CONFIG_JSON:
+        CONFIG_JSON = json.load("config.json")
+    return CONFIG_JSON[key]
 
 
 def check_folder(folder: str, clear_folder: bool = True):
@@ -95,7 +73,7 @@ def dataset_path() -> str:
     Returns:
         The absolute path of the raw dataset.
     """
-    return abs_path(get_dataset_path("raw_datasets_path"))
+    return abs_path(load_config("raw_datasets_path"))
 
 
 def cov_path() -> str:
@@ -105,7 +83,7 @@ def cov_path() -> str:
     Returns:
         The absolute path of the raw covid dataset.
     """
-    return abs_path(get_dataset_path("raw_covid_dataset_path"))
+    return abs_path(load_config("raw_covid_dataset_path"))
 
 
 def cov_masks_path() -> str:
@@ -115,7 +93,7 @@ def cov_masks_path() -> str:
     Returns:
         The absolute path of the covid masks dataset.
     """
-    return abs_path(get_dataset_path("covid_masks_path"))
+    return abs_path(load_config("covid_masks_path"))
 
 
 def normal_path() -> str:
@@ -125,7 +103,7 @@ def normal_path() -> str:
     Returns:
         The absolute path of the raw healthy dataset.
     """
-    return abs_path(get_dataset_path("raw_normal_path"))
+    return abs_path(load_config("raw_normal_path"))
 
 
 def normal_masks_path() -> str:
@@ -135,7 +113,7 @@ def normal_masks_path() -> str:
     Returns:
         The absolute path of the healthy masks dataset.
     """
-    return abs_path(get_dataset_path("normal_masks_path"))
+    return abs_path(load_config("normal_masks_path"))
 
 
 def cov_processed_path() -> str:
@@ -145,7 +123,7 @@ def cov_processed_path() -> str:
     Returns:
         The absolute path of the covid processed dataset.
     """
-    return abs_path(get_dataset_path("covid_processed_path"))
+    return abs_path(load_config("covid_processed_path"))
 
 
 def normal_processed_path() -> str:
@@ -155,7 +133,7 @@ def normal_processed_path() -> str:
     Returns:
         The absolute path of the healthy processed dataset.
     """
-    return abs_path(get_dataset_path("normal_processed_path"))
+    return abs_path(load_config("normal_processed_path"))
 
 
 def model_path() -> str:
@@ -166,6 +144,16 @@ def model_path() -> str:
         The absolute path of the model.
     """
     return load_config("others")["model_path"]
+
+
+def characteristics_path() -> str:
+    """
+    Get the path to the characteristics file.
+
+    Returns:
+        The path to the characteristics file.
+    """
+    return load_config("other")["characteristics_path"]
 
 
 def cov_images(extension: str = "g") -> list[str]:
@@ -244,13 +232,3 @@ def normal_processed(extension: str = "g") -> list[str]:
         A list of all files with the specified extension from the healthy processed directory.
     """
     return glob(normal_processed_path() + f"/*{extension}")
-
-
-def characteristics_path() -> str:
-    """
-    Get the path to the characteristics file.
-
-    Returns:
-        The path to the characteristics file.
-    """
-    return load_config("other")["characteristics_path"]
