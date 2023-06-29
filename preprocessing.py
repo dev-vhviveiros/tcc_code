@@ -1,7 +1,7 @@
-from image import LungMaskGenerator, ImageLoader, ImageProcessor, ImageSaver, ImageCharacteristics
-from utils import check_folder, abs_path, cov_images, normal_images
+from image import LungMaskGenerator, ImageProcessor, ImageSaver, ImageCharacteristics
+from utils import check_folder
 from wandb_utils import WandbUtils
-from wb_dataset_representation import WBCovidMaskDatasetArtifact, WBCovidProcessedDatasetArtifact, WBNormalMaskDatasetArtifact, WBNormalProcessedDatasetArtifact
+from dataset_representation import Characteristics, CovidDataset, CovidMaskDataset, CovidProcessedDataset, NormalDataset, NormalMaskDataset, NormalProcessedDataset
 
 
 class Preprocessing:
@@ -12,11 +12,9 @@ class Preprocessing:
         Args:
             wandb (WandbUtils): The WandbUtils object to use for logging.
         """
-        self.covid_path = cov_images()
-        self.covid_masks_path = cov_masks_path()
-        self.normal_path = normal_images()
-        self.normal_masks_path = normal_masks_path()
-        self.characteristics_path = characteristics_path()
+        self.covid_mask_dataset = CovidMaskDataset()
+        self.normal_masks = NormalMaskDataset()
+        self.characteristics = Characteristics()
         self.wandb = wandb
 
     def generate_lungs_masks(self, covid_artifact, normal_artifact):
@@ -31,16 +29,16 @@ class Preprocessing:
             None
         """
         # For re-creating the folders
-        check_folder(self.covid_masks_path)
-        check_folder(self.normal_masks_path)
+        check_folder(self.covid_mask_dataset.path)
+        check_folder(self.normal_masks.path)
 
         # Generate masks
-        LungMaskGenerator(folder_in=covid_artifact, folder_out=self.covid_masks_path).generate()
-        LungMaskGenerator(folder_in=normal_artifact, folder_out=self.normal_masks_path).generate()
+        LungMaskGenerator(folder_in=covid_artifact, folder_out=self.covid_mask_dataset.path).generate()
+        LungMaskGenerator(folder_in=normal_artifact, folder_out=self.normal_masks.path).generate()
 
         # Upload the artifacts
-        self.wandb.upload_dataset_artifact(WBCovidMaskDatasetArtifact())
-        self.wandb.upload_dataset_artifact(WBNormalMaskDatasetArtifact())
+        self.wandb.upload_dataset_artifact(CovidMaskDataset())
+        self.wandb.upload_dataset_artifact(NormalMaskDataset())
 
     def process_images(self, *artifacts):
         """
@@ -66,21 +64,24 @@ class Preprocessing:
         cov_processed = cov_processor.process()
         normal_processed = normal_processor.process()
 
+        cov_processed_artifact = CovidProcessedDataset()
+        normal_processed_artifact = NormalProcessedDataset()
+
         # Save the processed images
-        cov_save_path = cov_processed_path()
-        normal_save_path = normal_processed_path()
+        cov_save_path = cov_processed_artifact.path
+        normal_save_path = normal_processed_artifact.path
 
         # Create the save paths if they don't exist, and delete any previous
-        check_folder(cov_processed_path())
-        check_folder(normal_processed_path())
+        check_folder(cov_save_path)
+        check_folder(normal_save_path)
 
         # Save the processed images to the specified paths
         ImageSaver(cov_processed).save_to(cov_save_path)
         ImageSaver(normal_processed).save_to(normal_save_path)
 
         # Upload the processed datasets to wandb
-        self.wandb.upload_dataset_artifact(WBCovidProcessedDatasetArtifact())
-        self.wandb.upload_dataset_artifact(WBNormalProcessedDatasetArtifact())
+        self.wandb.upload_dataset_artifact(cov_processed_artifact)
+        self.wandb.upload_dataset_artifact(normal_processed_artifact)
 
     def generate_characteristics(self, cov_processed_artifact, normal_processed_artifact):
         """
@@ -94,5 +95,5 @@ class Preprocessing:
             None
         """
         ic = ImageCharacteristics(cov_processed_artifact, normal_processed_artifact)
-        ic.save(self.characteristics_path)
+        ic.save(self.characteristics.path)
         self.wandb.upload_characteristics()

@@ -7,8 +7,9 @@ from tensorflow.keras.wrappers.scikit_learn import KerasClassifier
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import confusion_matrix, make_scorer, f1_score
+from dataset_representation import DATASET_TAG, Model
 from models import classifier_model
-from utils import DATASET_TAG, check_folder, load_config, model_path
+from utils import check_folder, load_config
 from training_plot import TrainingPlot
 from wandb_utils import WB_JOB_MODEL_FIT, WandbUtils
 
@@ -165,11 +166,12 @@ class Classifier:
 
     def __export_model(self):
         """This code is a function that exports a model. It takes two parameters: save_dir (the directory where the model should be saved) and date_time (the current date and time). 
-The first line calls the check_folder() function to check if the save_dir exists, and creates it if it does not. 
-The second line saves the model in the save_dir directory with the name "model.h5"."""
-        check_folder(model_path(), False)
+        The first line calls the check_folder() function to check if the save_dir exists, and creates it if it does not. 
+        The second line saves the model in the save_dir directory with the name "model.h5"."""
+        model_path = Model().path
+        check_folder(model_path, False)
         # self.model.save(save_dir + 'save_' + date_time + '.h5')
-        self.model.save(model_path())
+        self.model.save(model_path)
 
     def __import_model(self, model_dir, optimizer='sgd', activation='relu', activation_output='sigmoid', loss='binary_crossentropy', units=180):
         """This function creates a classifier model with the given parameters and loads the weights from the given directory. 

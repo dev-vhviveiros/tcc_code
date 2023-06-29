@@ -2,12 +2,10 @@
 import numpy as np
 import wandb
 from image import Image, ImageLoader
-from utils import CHARACTERISTICS_TAG, COVID_TAG, DATASET_TAG, MODEL_TAG, abs_path, model_path, cov_processed_path, normal_processed_path, characteristics_path, load_config
-from utils import cov_processed, cov_images, cov_masks
-from utils import normal_processed, normal_images, normal_masks
+from utils import abs_path, load_config
 from vhviv_tools.json import json
 
-from wb_dataset_representation import WBDatasetArtifact, WBCharacteristicsArtifact
+from dataset_representation import CHARACTERISTICS_TAG, COVID_TAG, DATASET_TAG, MODEL_TAG, CovidDataset, CovidMaskDataset, CovidProcessedDataset, DatasetRepresentation, Characteristics, Model, NormalDataset, NormalMaskDataset, NormalProcessedDataset
 
 # Project variables (just to avoid repeating/misspelling them)
 # JOB VARIABLES:
@@ -108,8 +106,8 @@ class WandbUtils:
     def log_table(self):
         """ The function takes in the self parameter, which is a reference to the current instance of the class. Inside the function, a callback function is defined that takes in a run parameter. This callback function calls two other functions, __create_wandb_table and finish(), which create an interactive table in W&B with covid and non-covid images and masks, respectively. Finally, the execute_with() method is called with the callback and job_log_table parameters."""
         def callback(run):
-            self.__create_wandb_table(cov_images(), cov_masks(), cov_processed(), "covid")
-            self.__create_wandb_table(normal_images(), normal_masks(), normal_processed(), "non-covid")
+            self.__create_wandb_table(CovidDataset().images(), CovidMaskDataset().images(), CovidProcessedDataset().images(), "covid")
+            self.__create_wandb_table(NormalDataset().images(), NormalMaskDataset().images(), NormalProcessedDataset().images(), "non-covid")
 
         self.run_job(callback, WB_JOB_LOG_TABLE)
 
@@ -117,8 +115,8 @@ class WandbUtils:
         """This function creates a log of histogram chart comparison. It first creates two image generators from cov_processed_path and non_cov_processed_path. Then it creates two histogram data sets from the generated images, cov_hist_data and non_cov_hist_data. The data is then converted to a list of tuples and stored in cov_table and non_cov_table. Finally, the tables are logged in the run."""
         def callback(run):
             # Load the image data for the cov and non-cov images
-            cov_processed_gen = ImageLoader().load_from(cov_processed_path())
-            non_cov_processed_gen = ImageLoader().load_from(normal_processed_path())
+            cov_processed_gen = ImageLoader().load_from(CovidProcessedDataset().path)
+            non_cov_processed_gen = ImageLoader().load_from(NormalProcessedDataset().path)
 
             # Define a helper function to generate histogram data for an image generator
             def generate_histogram_data(image_gen):
@@ -161,7 +159,7 @@ class WandbUtils:
         # Run the callback function as a job with a specified job type
         self.run_job(callback, WB_JOB_HISTOGRAM_CHART)
 
-    def upload_dataset_artifact(self, dataset_artifact: WBDatasetArtifact):
+    def upload_dataset_artifact(self, dataset_artifact: DatasetRepresentation):
         """This method is used to upload a dataset artifact to W&B using the provided WBDatasetArtifact object. It creates a W&B artifact with the tag and type specified in the WBDatasetArtifact object and adds the directory specified in the object to the artifact. It then logs the artifact to W&B using the provided aliases.
 
         Parameters:
@@ -173,7 +171,7 @@ class WandbUtils:
 
         self.run_job(callback, WB_JOB_UPLOAD_DATASET)
 
-    def load_dataset_artifact(self, dataset_artifact: WBDatasetArtifact) -> str:
+    def load_dataset_artifact(self, dataset_artifact: DatasetRepresentation) -> str:
         """Loads a previously uploaded dataset artifact and downloads it to the local machine.
             Parameters:
                 dataset_artifact (WBDatasetArtifact): An instance of the WBDatasetArtifact class that specifies the artifact to be loaded.
@@ -200,7 +198,7 @@ class WandbUtils:
     def generate_model_artifact(self):
         """This code defines a function called generate_model_artifact that takes in an object of the class it is defined in as a parameter. The function creates an artifact object from the Wandb library, with the tag given by the self.artifact_model_tag parameter and type set to "model". It then adds a file located at model_path to the artifact and returns it."""
         model = wandb.Artifact(MODEL_TAG, type=MODEL_TAG)
-        model.add_file(model_path())
+        model.add_file(Model().path)
         return model
 
     def upload_model_artifact(self, run):
@@ -218,7 +216,7 @@ class WandbUtils:
             The downloaded characteristics artifact.
         """
         def callback(run):
-            artifact_wdb_path = WBCharacteristicsArtifact().wb_artifact_path(self.project_path, self.wdb_alias)
+            artifact_wdb_path = Characteristics().wb_artifact_path(self.project_path, self.wdb_alias)
             artifact = run.use_artifact(artifact_wdb_path, type=CHARACTERISTICS_TAG)
             return artifact.download() + "/" + load_config("other")["generated_csv_file"]
 
@@ -233,7 +231,7 @@ class WandbUtils:
         """
         def callback(run):
             artifact = wandb.Artifact(CHARACTERISTICS_TAG, type=CHARACTERISTICS_TAG)
-            artifact.add_file(characteristics_path())
+            artifact.add_file(Characteristics().path)
             run.log_artifact(artifact, aliases=[CHARACTERISTICS_TAG, self.wdb_alias])
 
         self.run_job(callback, WB_JOB_UPLOAD_DATASET)
