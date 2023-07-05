@@ -3,7 +3,6 @@ import numpy as np
 import wandb
 from image import Image, ImageLoader
 from utils import abs_path, load_config
-from vhviv_tools.json import json
 
 from dataset_representation import CHARACTERISTICS_TAG, COVID_TAG, DATASET_TAG, MODEL_TAG, CovidDataset, CovidMaskDataset, CovidProcessedDataset, DatasetRepresentation, Characteristics, Model, NormalDataset, NormalMaskDataset, NormalProcessedDataset
 
@@ -20,10 +19,9 @@ WB_JOB_LOG_TRAINING_DATA = "log_training_data"
 
 class WandbUtils:
     def __init__(self, wdb_data_alias):
-        config = json("config.json")["wandb"]
-        self.project_owner = config["wb_project_owner"]
-        self.project_name = config["wb_project_name"]
-        self.project_path = config["wb_project_path"]
+        self.project_owner = load_config("wb_project_owner")
+        self.project_name = load_config("wb_project_name")
+        self.project_path = load_config("wb_project_path")
         self.wdb_alias = wdb_data_alias
         self._run = wandb.init(project=self.project_name)
 
@@ -218,7 +216,7 @@ class WandbUtils:
         def callback(run):
             artifact_wdb_path = Characteristics().wb_artifact_path(self.project_path, self.wdb_alias)
             artifact = run.use_artifact(artifact_wdb_path, type=CHARACTERISTICS_TAG)
-            return artifact.download() + "/" + load_config("other")["generated_csv_file"]
+            return artifact.download() + "/" + load_config("generated_csv_file")
 
         return self.run_job(callback, WB_JOB_LOAD_DATASET)
 

@@ -1,7 +1,7 @@
 from image import LungMaskGenerator, ImageProcessor, ImageSaver, ImageCharacteristics
 from utils import check_folder
 from wandb_utils import WandbUtils
-from dataset_representation import Characteristics, CovidDataset, CovidMaskDataset, CovidProcessedDataset, NormalDataset, NormalMaskDataset, NormalProcessedDataset
+from dataset_representation import Characteristics, CovidMaskDataset, CovidProcessedDataset,  NormalMaskDataset, NormalProcessedDataset
 
 
 class Preprocessing:
