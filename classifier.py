@@ -82,8 +82,8 @@ class Classifier:
             y_true, y_pred, labels=[0, 1]).ravel()
         return (tp / (tp + fn))
 
-    def tuner(self, tuner):
-        tuner.search(self.normalized_training_characteristics, self.training_labels, epochs=300, validation_split=0.1)
+    def tuner(self, tuner, epochs, validation_split):
+        tuner.search(self.normalized_training_characteristics, self.training_labels, epochs=epochs, validation_split=validation_split)
 
     def validation(self, n_jobs=-2, cv=10, batch_size=-1, epochs=-1, units=-1, optimizer=['adam'], activation=['relu'], activation_output=['sigmoid'], loss=['binary_crossentropy'], save_path=None):
         """This code is a function that uses the KerasClassifier class to perform a grid search using cross-validation (cv) and the given parameters. The parameters include batch size, epochs, units, optimizer, activation, activation output, and loss. The metrics used for scoring are accuracy, precision, f1_score, sensitivity, and specificity. The learning rate is set to 0.001 and WandbCallback is used as a callback for the grid search. If the save_path parameter is not None and both batch size and epochs have been specified, then the validation results are saved to the given path. Finally, the grid search results are returned."""
