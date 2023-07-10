@@ -51,13 +51,13 @@ class Classifier:
         labels = characteristics_df.iloc[:, 268].values
 
         # Split the data into training and testing sets
-        training_image_characteristics, testing_image_characteristics, self.training_labels, self.testing_labels = train_test_split(
+        training_image_characteristics, testing_image_characteristics, self.train_labels, self.val_labels = train_test_split(
             image_characteristics, labels, test_size=test_size, random_state=0)
 
         # Normalize the data using the StandardScaler function
         scaler = StandardScaler()
-        self.normalized_training_characteristics = scaler.fit_transform(training_image_characteristics)
-        self.normalized_testing_characteristics = scaler.transform(testing_image_characteristics)
+        self.norm_train_characteristics = scaler.fit_transform(training_image_characteristics)
+        self.norm_val_characteristics = scaler.transform(testing_image_characteristics)
 
     def __format_validation(self, grid_cv):  # TODO: what does this do
         """This function takes in a grid_cv object as an argument and returns a dictionary containing the best results of the cross-validation for each metric. 
@@ -82,8 +82,8 @@ class Classifier:
             y_true, y_pred, labels=[0, 1]).ravel()
         return (tp / (tp + fn))
 
-    def tuner(self, tuner, epochs, validation_split):
-        tuner.search(self.normalized_training_characteristics, self.training_labels, epochs=epochs, validation_split=validation_split)
+    def tuner(self, tuner, epochs):
+        tuner.search(self.norm_train_characteristics, self.train_labels, epochs=epochs, validation_data=(self.norm_val_characteristics, self.val_labels))
 
     def validation(self, n_jobs=-2, cv=10, batch_size=-1, epochs=-1, units=-1, optimizer=['adam'], activation=['relu'], activation_output=['sigmoid'], loss=['binary_crossentropy'], save_path=None):
         """This code is a function that uses the KerasClassifier class to perform a grid search using cross-validation (cv) and the given parameters. The parameters include batch size, epochs, units, optimizer, activation, activation output, and loss. The metrics used for scoring are accuracy, precision, f1_score, sensitivity, and specificity. The learning rate is set to 0.001 and WandbCallback is used as a callback for the grid search. If the save_path parameter is not None and both batch size and epochs have been specified, then the validation results are saved to the given path. Finally, the grid search results are returned."""
@@ -119,7 +119,7 @@ class Classifier:
         #     "batch_size": batch_size
         # }
 
-        grid_search.fit(self.normalized_training_characteristics, self.training_labels)
+        grid_search.fit(self.norm_train_characteristics, self.train_labels)
 
         if save_path is not None and len(batch_size) + len(epochs) == 2:
             self.__save_validation(grid_search, save_path)
@@ -159,8 +159,8 @@ class Classifier:
             #     log_dir=log_dir, histogram_freq=1)
             self.model = classifier_model(optimizer, activation, activation_output, units,
                                           ['accuracy', Precision(), AUC(), Recall()], loss)
-            self.model.fit(self.normalized_training_image_characteristics, self.training_labels, batch_size=batch_size, epochs=epochs, verbose=1, workers=12, use_multiprocessing=True,
-                           validation_data=(self.normalized_testing_image_characteristics, self.testing_labels), callbacks=[TrainingPlot(epochs), WandbCallback(data_type="histogram")])
+            self.model.fit(self.normalized_training_image_characteristics, self.train_labels, batch_size=batch_size, epochs=epochs, verbose=1, workers=12, use_multiprocessing=True,
+                           validation_data=(self.normalized_testing_image_characteristics, self.val_labels), callbacks=[TrainingPlot(epochs), WandbCallback(data_type="histogram")])
             if export_model:
                 self.__export_model()
 
@@ -194,7 +194,7 @@ class Classifier:
     def __confusion_matrix(self):
         """This code uses the model attribute from the instance to predict classes from the normalized_testing_image_characteristics attribute of the instance. It then uses the confusion_matrix function to compare the predicted classes with the testing_labels attribute of the instance and returns the matrix."""
         pred = self.model.predict_classes(self.normalized_testing_image_characteristics)
-        matrix = confusion_matrix(pred, self.testing_labels)
+        matrix = confusion_matrix(pred, self.val_labels)
         return (matrix)
 
     def plot_confusion_matrix(self,

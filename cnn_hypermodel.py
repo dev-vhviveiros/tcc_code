@@ -8,7 +8,8 @@ sess = tf.compat.v1.Session(config=config)
 
 
 class CNNHyperModel(HyperModel):
-    def __init__(self, optimizer_callout, activation_callout, activation_output_callout, units_callout, dropout_callout, loss_callout, metrics=["accuracy"]):
+    def __init__(self, batch_size_callout, optimizer_callout, activation_callout, activation_output_callout, units_callout, dropout_callout, loss_callout, metrics=["accuracy"]):
+        self.batch_size_callout = batch_size_callout
         self.optimizer_callout = optimizer_callout
         self.activation_callout = activation_callout
         self.activation_output_callout = activation_output_callout
@@ -44,3 +45,10 @@ class CNNHyperModel(HyperModel):
         model.compile(optimizer=optimizer_hp,
                       loss=loss_hp, metrics=self.metrics)
         return model
+    
+    def fit(self, hp, model, *args, **kwargs):
+        return model.fit(
+            *args,
+            batch_size=self.batch_size_callout(hp),
+            **kwargs,
+        )
