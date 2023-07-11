@@ -1,5 +1,5 @@
 from kerastuner import HyperModel, HyperParameters
-from tensorflow.keras.layers import Dropout, Dense
+from tensorflow.keras.layers import Dropout, Dense, ReLU
 from tensorflow.keras.models import Sequential
 import tensorflow as tf
 config = tf.compat.v1.ConfigProto()
@@ -42,6 +42,7 @@ class CNNHyperModel(HyperModel):
         model.add(Dense(units=units_hp, activation=activation_hp))
         model.add(Dropout(rate=dropout_hp))
         model.add(Dense(units=1, activation=activation_output_hp))
+        model.add(ReLU())
         model.compile(optimizer=optimizer_hp,
                       loss=loss_hp, metrics=self.metrics)
         return model
@@ -50,5 +51,7 @@ class CNNHyperModel(HyperModel):
         return model.fit(
             *args,
             batch_size=self.batch_size_callout(hp),
+            workers=6,
+            use_multiprocessing=True,
             **kwargs,
         )

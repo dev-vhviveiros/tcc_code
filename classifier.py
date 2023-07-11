@@ -3,8 +3,7 @@ from wandb.keras import WandbCallback
 import pandas as pd
 import datetime
 from tensorflow.keras.metrics import AUC, Recall, Precision
-from tensorflow.keras.wrappers.scikit_learn import KerasClassifier
-from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import confusion_matrix, make_scorer, f1_score
 from dataset_representation import DATASET_TAG, Model
@@ -12,6 +11,7 @@ from models import classifier_model
 from utils import check_folder, load_config
 from training_plot import TrainingPlot
 from wandb_utils import WB_JOB_MODEL_FIT, WandbUtils
+from keras_tuner.engine import tuner as tuner_module
 
 
 class Classifier:
@@ -59,15 +59,6 @@ class Classifier:
         self.norm_train_characteristics = scaler.fit_transform(training_image_characteristics)
         self.norm_val_characteristics = scaler.transform(testing_image_characteristics)
 
-    def __format_validation(self, grid_cv):  # TODO: what does this do
-        """This function takes in a grid_cv object as an argument and returns a dictionary containing the best results of the cross-validation for each metric. 
-                The key_filter function filters out the keys in grid_cv.cv_results_ that start with 'split' and contain the name of a metric, then the dictionary is created by looping through each metric and adding its best result to the dictionary."""
-        def key_filter(key):
-            return list(filter(lambda x: x.startswith('split') and x.__contains__(key), grid_cv.cv_results_))
-
-        return {metric: [grid_cv.cv_results_[m][grid_cv.best_index_] for m in key_filter(metric)]
-                for metric in self.metrics}
-
     @staticmethod
     def custom_specificity(y_true, y_pred):
         """This code defines a function called custom_specificity that takes two parameters, y_true and y_pred. It then uses the confusion_matrix function to calculate the true negative (tn) and false positive (fp) values for the given labels of 0 and 1. Finally, it returns the ratio of true negatives to the sum of true negatives and false positives. This ratio is known as specificity, which measures how well a model can distinguish between classes."""
@@ -82,54 +73,14 @@ class Classifier:
             y_true, y_pred, labels=[0, 1]).ravel()
         return (tp / (tp + fn))
 
-    def tuner(self, tuner, epochs):
+    def tuner(self, tuner:tuner_module.Tuner, epochs:int):
+        ##TODO: Add metrics as following:##
+        # self.metrics = {'accuracy': 'accuracy',
+        #                 'precision': 'precision',
+        #                 'f1_score': make_scorer(f1_score),
+        #                 'sensitivity': make_scorer(Classifier.custom_sensitivity),
+        #                 'specificity': make_scorer(Classifier.custom_specificity)}
         tuner.search(self.norm_train_characteristics, self.train_labels, epochs=epochs, validation_data=(self.norm_val_characteristics, self.val_labels))
-
-    def validation(self, n_jobs=-2, cv=10, batch_size=-1, epochs=-1, units=-1, optimizer=['adam'], activation=['relu'], activation_output=['sigmoid'], loss=['binary_crossentropy'], save_path=None):
-        """This code is a function that uses the KerasClassifier class to perform a grid search using cross-validation (cv) and the given parameters. The parameters include batch size, epochs, units, optimizer, activation, activation output, and loss. The metrics used for scoring are accuracy, precision, f1_score, sensitivity, and specificity. The learning rate is set to 0.001 and WandbCallback is used as a callback for the grid search. If the save_path parameter is not None and both batch size and epochs have been specified, then the validation results are saved to the given path. Finally, the grid search results are returned."""
-
-        classifier = KerasClassifier(build_fn=classifier_model)
-
-        parameters = {'batch_size': batch_size,
-                      'units': units,
-                      'epochs': epochs,
-                      'optimizer': optimizer,
-                      'activation': activation,
-                      'activationOutput': activation_output,
-                      'loss': loss}
-
-        self.metrics = {'accuracy': 'accuracy',
-                        'precision': 'precision',
-                        'f1_score': make_scorer(f1_score),
-                        'sensitivity': make_scorer(Classifier.custom_sensitivity),
-                        'specificity': make_scorer(Classifier.custom_specificity)}
-
-        grid_search = GridSearchCV(estimator=classifier,
-                                   verbose=2,
-                                   param_grid=parameters,
-                                   n_jobs=n_jobs,
-                                   scoring=self.metrics,
-                                   refit='accuracy',
-                                   return_train_score=False,
-                                   cv=cv)
-
-        # wandb.config = {
-        #     "learning_rate": 0.001,
-        #     "epochs": epochs,
-        #     "batch_size": batch_size
-        # }
-
-        grid_search.fit(self.norm_train_characteristics, self.train_labels)
-
-        if save_path is not None and len(batch_size) + len(epochs) == 2:
-            self.__save_validation(grid_search, save_path)
-
-        return grid_search
-
-    def __save_validation(self, grid_search, save_path):
-        """This function saves the results of a grid search validation. It takes two parameters, the grid search object and the save path. It formats the results of the grid search into a dataframe and then saves it to a csv file at the specified save path."""
-        result_set = self.__format_validation(grid_search)
-        pd.DataFrame(result_set).to_csv(save_path)
 
     def fit(self, logs_folder, export_model=True, batch_size=16, epochs=300, units=180, optimizer='sgd', activation='relu', activation_output='sigmoid', loss='binary_crossentropy'):
         """This code is used to fit a classifier model with the given parameters. It initializes a run on Weights & Biases (Wandb) and logs the dataset generated for the model. It then creates a classifier model using the given parameters and fits it to the training data. The TrainingPlot and WandbCallback callbacks are used for visualizing the training process. Finally, if an export directory is provided, it exports the model to that directory and logs an artifact of the model on Wandb."""
@@ -191,12 +142,6 @@ class Classifier:
         self.model.load_weights(model_dir)
         return self.model
 
-    def __confusion_matrix(self):
-        """This code uses the model attribute from the instance to predict classes from the normalized_testing_image_characteristics attribute of the instance. It then uses the confusion_matrix function to compare the predicted classes with the testing_labels attribute of the instance and returns the matrix."""
-        pred = self.model.predict_classes(self.normalized_testing_image_characteristics)
-        matrix = confusion_matrix(pred, self.val_labels)
-        return (matrix)
-
     def plot_confusion_matrix(self,
                               title='Confusion matrix',
                               cmap=None,
@@ -238,7 +183,8 @@ class Classifier:
         import numpy as np
         import itertools
 
-        cm = self.__confusion_matrix()
+        pc = self.model.predict_classes(self.normalized_testing_image_characteristics)
+        cm = confusion_matrix(pc, self.val_labels)
         target_names = ['Covid-19', 'Normal']
 
         accuracy = np.trace(cm) / float(np.sum(cm))
