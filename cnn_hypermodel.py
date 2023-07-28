@@ -25,28 +25,26 @@ class CNNHyperModel(HyperModel):
         units_hp = self.units_callout(hp)
         dropout_hp = self.dropout_callout(hp)
         loss_hp = self.loss_callout(hp)
-        
-        model = Sequential()
-        model.add(Dense(units=units_hp))
-        model.add(
-            Dense(units=units_hp, activation=activation_hp, input_shape=(268,)))
-        model.add(Dropout(rate=dropout_hp))
-        model.add(Dense(units=units_hp, activation=activation_hp))
-        model.add(Dropout(rate=dropout_hp))
-        model.add(Dense(units=units_hp, activation=activation_hp))
-        model.add(Dropout(rate=dropout_hp))
-        model.add(Dense(units=units_hp, activation=activation_hp))
-        model.add(Dropout(rate=dropout_hp))
-        model.add(Dense(units=units_hp, activation=activation_hp))
-        model.add(Dropout(rate=dropout_hp))
-        model.add(Dense(units=units_hp, activation=activation_hp))
-        model.add(Dropout(rate=dropout_hp))
-        model.add(Dense(units=1, activation=activation_output_hp))
-        model.add(ReLU())
-        model.compile(optimizer=optimizer_hp,
-                      loss=loss_hp, metrics=self.metrics)
-        return model
-    
+
+        classifier = Sequential()
+        classifier.add(
+            Dense(units=units_hp, activation=activation_hp, input_shape=(267,)))
+        classifier.add(Dropout(rate=dropout_hp))
+        classifier.add(Dense(units=units_hp, activation=activation_hp))
+        classifier.add(Dropout(rate=dropout_hp))
+        classifier.add(Dense(units=units_hp, activation=activation_hp))
+        classifier.add(Dropout(rate=dropout_hp))
+        classifier.add(Dense(units=units_hp, activation=activation_hp))
+        classifier.add(Dropout(rate=dropout_hp))
+        classifier.add(Dense(units=units_hp, activation=activation_hp))
+        classifier.add(Dropout(rate=dropout_hp))
+        classifier.add(Dense(units=units_hp, activation=activation_hp))
+        classifier.add(Dropout(rate=dropout_hp))
+        classifier.add(Dense(units=1, activation=activation_output_hp))
+        classifier.compile(optimizer=optimizer_hp,
+                           loss=loss_hp, metrics=self.metrics)
+        return classifier
+
     def fit(self, hp, model, *args, **kwargs):
         return model.fit(
             *args,

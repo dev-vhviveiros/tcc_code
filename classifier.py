@@ -48,8 +48,7 @@ class Classifier:
         print("SHAPE:" + str(characteristics_df.shape))
 
         # Extract the input data (image characteristics) and output data (labels)
-        # wARN: Be careful about the change: 1:269 -> 0:268
-        image_characteristics = characteristics_df.iloc[:, 0:268].values
+        image_characteristics = characteristics_df.iloc[:, 0:267].values
         labels = characteristics_df.iloc[:, 268].values
 
         # Split the data into training and testing sets
@@ -75,7 +74,7 @@ class Classifier:
         tp = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
         return tp / (tp + fn + K.epsilon())
 
-    def tuner(self, tuner: tuner_module.Tuner, epochs: int):
+    def tune(self, tuner: tuner_module.Tuner, epochs: int):
         tuner.search(self.norm_train_characteristics, self.train_labels, epochs=epochs,
                      validation_data=(self.norm_val_characteristics, self.val_labels))
 
@@ -98,8 +97,8 @@ class Classifier:
                 "characteristics", type=DATASET_TAG)
             generated_dataset.add_file(
                 "characteristics.csv")
-            run.log_artifact(generated_dataset)
-            print("\nExporting generated dataset...\n")
+            # run.log_artifact(generated_dataset)
+            # print("\nExporting generated dataset...\n")
 
             # check_folder(logs_folder, False)
             # log_dir = logs_folder + date_time
@@ -107,8 +106,8 @@ class Classifier:
             #     log_dir=log_dir, histogram_freq=1)
             self.model = classifier_model(optimizer, activation, activation_output, units,
                                           ['accuracy', Precision(), AUC(), Recall()], loss)
-            self.model.fit(self.normalized_training_image_characteristics, self.train_labels, batch_size=batch_size, epochs=epochs, verbose=1, workers=12, use_multiprocessing=True,
-                           validation_data=(self.normalized_testing_image_characteristics, self.val_labels), callbacks=[TrainingPlot(epochs), WandbCallback(data_type="histogram")])
+            self.model.fit(self.norm_train_characteristics, self.train_labels, batch_size=batch_size, epochs=epochs, verbose=1, workers=12, use_multiprocessing=True,
+                           validation_data=(self.norm_val_characteristics, self.val_labels), callbacks=[TrainingPlot(epochs), WandbCallback(data_type="histogram")])
             if export_model:
                 self.__export_model()
 
