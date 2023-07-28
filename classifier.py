@@ -1,3 +1,4 @@
+import numpy as np
 import wandb
 from wandb.keras import WandbCallback
 import pandas as pd
@@ -12,6 +13,7 @@ from utils import check_folder, load_config
 from training_plot import TrainingPlot
 from wandb_utils import WB_JOB_MODEL_FIT, WandbUtils
 from keras_tuner.engine import tuner as tuner_module
+import tensorflow.keras.backend as K
 
 
 class Classifier:
@@ -61,26 +63,21 @@ class Classifier:
 
     @staticmethod
     def custom_specificity(y_true, y_pred):
-        """This code defines a function called custom_specificity that takes two parameters, y_true and y_pred. It then uses the confusion_matrix function to calculate the true negative (tn) and false positive (fp) values for the given labels of 0 and 1. Finally, it returns the ratio of true negatives to the sum of true negatives and false positives. This ratio is known as specificity, which measures how well a model can distinguish between classes."""
-        tn, fp, _, _ = confusion_matrix(
-            y_true, y_pred, labels=[0, 1]).ravel()
-        return (tn / (tn + fp))
+        """This code defines a function called custom_specificity that takes two parameters, y_true and y_pred. It then uses Keras backend functions to calculate the true negative (tn) and false positive (fp) values for the given labels of 0 and 1. Finally, it returns the ratio of true negatives to the sum of true negatives and false positives. This ratio is known as specificity, which measures how well a model can distinguish between classes."""
+        tn = K.sum(K.round(K.clip((1 - y_true) * (1 - y_pred), 0, 1)))
+        fp = K.sum(K.round(K.clip((1 - y_true) * y_pred, 0, 1)))
+        return tn / (tn + fp + K.epsilon())
 
     @staticmethod
     def custom_sensitivity(y_true, y_pred):
-        """This code defines a function called custom_sensitivity, which takes two parameters, y_true and y_pred. It then uses the confusion_matrix function to calculate the false negatives (fn) and true positives (tp). Finally, it returns the ratio of true positives to the sum of true positives and false negatives. This ratio is a measure of sensitivity, which is the ability of a model to correctly identify positive cases."""
-        _, _, fn, tp = confusion_matrix(
-            y_true, y_pred, labels=[0, 1]).ravel()
-        return (tp / (tp + fn))
+        """This code defines a function called custom_sensitivity, which takes two parameters, y_true and y_pred. It then uses Keras backend functions to calculate the false negatives (fn) and true positives (tp). Finally, it returns the ratio of true positives to the sum of true positives and false negatives. This ratio is a measure of sensitivity, which is the ability of a model to correctly identify positive cases."""
+        fn = K.sum(K.round(K.clip(y_true * (1 - y_pred), 0, 1)))
+        tp = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+        return tp / (tp + fn + K.epsilon())
 
-    def tuner(self, tuner:tuner_module.Tuner, epochs:int):
-        ##TODO: Add metrics as following:##
-        # self.metrics = {'accuracy': 'accuracy',
-        #                 'precision': 'precision',
-        #                 'f1_score': make_scorer(f1_score),
-        #                 'sensitivity': make_scorer(Classifier.custom_sensitivity),
-        #                 'specificity': make_scorer(Classifier.custom_specificity)}
-        tuner.search(self.norm_train_characteristics, self.train_labels, epochs=epochs, validation_data=(self.norm_val_characteristics, self.val_labels))
+    def tuner(self, tuner: tuner_module.Tuner, epochs: int):
+        tuner.search(self.norm_train_characteristics, self.train_labels, epochs=epochs,
+                     validation_data=(self.norm_val_characteristics, self.val_labels))
 
     def fit(self, logs_folder, export_model=True, batch_size=16, epochs=300, units=180, optimizer='sgd', activation='relu', activation_output='sigmoid', loss='binary_crossentropy'):
         """This code is used to fit a classifier model with the given parameters. It initializes a run on Weights & Biases (Wandb) and logs the dataset generated for the model. It then creates a classifier model using the given parameters and fits it to the training data. The TrainingPlot and WandbCallback callbacks are used for visualizing the training process. Finally, if an export directory is provided, it exports the model to that directory and logs an artifact of the model on Wandb."""

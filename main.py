@@ -1,76 +1,77 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed May 27 15:12:32 2020
-
-@author: vhviv
-"""
-# %%Imports
-from wandb import Artifact
-from old_classifier import Classifier
-from utils import abs_path, check_folder
-import joblib
-
+import tensorflow as tf
+from classifier import *
+from cnn_hypermodel import CNNHyperModel
+from dataset_representation import *
+from preprocessing import *
 from wandb_utils import WandbUtils
+from kerastuner.tuners import RandomSearch, Hyperband, BayesianOptimization
 
-# Upload artifacts
-WandbUtils.log_table()
+# Check the availability of gpu
+gpus = tf.config.list_physical_devices('GPU')
 
-# Read data
-# cf = Classifier(input_file='characteristics.csv')
+if gpus:
+    # Initialize the WandbUtils class and start a new run
+    wdb = WandbUtils("basic")
+    try:
+        # Load the dataset artifacts
+        covid_artifact = wdb.load_dataset_artifact(CovidDataset())
+        normal_artifact = wdb.load_dataset_artifact(NormalDataset())
 
-# %%Model validation
-# val = cf.validation(batch_size=[16, 20, 24], epochs=[250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000, 2000], units=[150, 180, 200, 220, 250, 300, 325], cv=10)
-# , 'sgd', 'adadelta'
+        # Initialize the Preprocessing class and generate lung masks for all images
+        pp = Preprocessing(wdb)
+        pp.generate_lungs_masks(covid_artifact, normal_artifact)
 
-# val = cf.validation(batch_size=[16], epochs=[100], units=[180, 220],
-#                     optimizer=['adadelta'],
-#                     activation=['relu', 'elu', 'selu', 'tanh', 'softsign', 'softplus'],
-#                     activation_output=['sigmoid', 'softmax', 'tanh', 'softplus'],
-#                     loss=['mean_squared_error', 'kl_divergence', 'poisson', 'binary_crossentropy'], cv=10, n_jobs=3)
+        # Load the masks artifacts
+        covid_mask_artifact = wdb.load_dataset_artifact(CovidMaskDataset())
+        normal_mask_artifact = wdb.load_dataset_artifact(NormalMaskDataset())
 
-# # val = cf.validation(activation=['relu'], activation_output=['tanh'], batch_size=[16], epochs=[300],
-# #                     loss=['mean_squared_error'], optimizer=['sgd'], units=[180], cv=10, layers=[7])
+        # Process the images
+        pp.process_images(covid_artifact, covid_mask_artifact, normal_artifact, normal_mask_artifact)
 
-# txt = open("result.txt", "a")
-# txt.write("###Best_params\n")
-# txt.write(str(val.best_params_))
-# txt.write("\n\n###Best_index\n")
-# txt.write(str(val.best_index_))
-# txt.write("\n\n###Best_score\n")
-# txt.write(str(val.best_score_))
-# txt.close()
+        # Load the processed datasets as artifacts
+        covid_processed_artifact = wdb.load_dataset_artifact(CovidProcessedDataset())
+        normal_processed_artifact = wdb.load_dataset_artifact(NormalProcessedDataset())
 
-# %%Model generate table
-# val = cf.validation(activation=['relu'], activation_output=['sigmoid'], batch_size=[16], epochs=[300],
-#                     loss=['binary_crossentropy'], optimizer=['sgd'], units=[220], cv=10, n_jobs=-1, save_path='result_table.csv')
+        wdb.log_histogram_chart_comparison()
 
-# val = cf.validation(batch_size=[16], epochs=[300], units=[180],
-#                     optimizer=['sgd'],
-#                     activation=['relu'],
-#                     activation_output=['tanh'],
-#                     loss=['mean_squared_error'],
-#                     cv=10, n_jobs=10, save_path='result_table.csv')
+        # Generate characteristics file
+        pp.generate_characteristics(covid_processed_artifact, normal_processed_artifact)
+        characteristics_artifact = wdb.load_characteristics()
+        classifier = Classifier(characteristics_artifact=characteristics_artifact)
 
-# txt = open("result.txt", "a")
-# txt.write("\n\n###Best_params\n")
-# txt.write(str(val.best_params_))
-# txt.write("\n\n###Best_index\n")
-# txt.write(str(val.best_index_))
-# txt.write("\n\n###Best_score\n")
-# txt.write(str(val.best_score_))
-# txt.close()
+        metrics = [tf.keras.metrics.Accuracy(),
+                   tf.keras.metrics.Precision(),
+                   tf.keras.metrics.Recall(),
+                   tf.keras.metrics.AUC(),
+                   Classifier.custom_sensitivity,
+                   Classifier.custom_specificity]
 
-# %%Model train
-# cf.fit(logs_folder=abs_path("logs\\"),
-#        export_dir=abs_path('./'), epochs=100)
+        hypermodel = CNNHyperModel(
+            metrics=metrics,
+            batch_size_callout=lambda hp: hp.Int("batch_size", min_value=8, max_value=60, step=4),
+            optimizer_callout=lambda hp: hp.Choice("optimizer", values=["sgd"]),
+            activation_callout=lambda hp: hp.Choice("activation", values=["relu"]),
+            activation_output_callout=lambda hp: hp.Choice("activation_output", values=["tanh"]),
+            loss_callout=lambda hp: hp.Choice("loss", values=["mean_squared_error"]),
+            dropout_callout=lambda hp: hp.Float("dropout", min_value=0.0, max_value=0.3, step=0.05),
+            units_callout=lambda hp: hp.Int("units", min_value=150, max_value=250, step=50)
+        )
 
-# %%Read model
-# cf = Classifier(import_model=abs_path('teste/save_2020_07_16-20_03_18.h5'),
-#                 input_file='characteristics.csv')
-# cf.plot_confusion_matrix(save_dir='confusion_matrix.png')
+        tuner = BayesianOptimization(
+            hypermodel,
+            objective='val_accuracy',
+            executions_per_trial=2,
+            directory='random_search',
+            project_name='tcc',
+            overwrite=True
+        )
 
-# %%Results
-# Comando para executar Tensorboard
-# tensorboard --logdir logs/
-# print(history.history.keys())
-# %%
+        # TODO/next steps:
+        # Create a toggle for using textures or not
+        # Integrate keras tuner to the wandb
+
+        classifier.tuner(tuner, 100)
+    finally:
+        wdb.finish()
+else:
+    print("No GPUs available")
