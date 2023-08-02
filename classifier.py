@@ -11,6 +11,7 @@ from dataset_representation import DATASET_TAG, Model
 from models import classifier_model
 from utils import check_folder, load_config
 from training_plot import TrainingPlot
+from tuner import CustomTuner
 from wandb_utils import WB_JOB_MODEL_FIT, WandbUtils
 from keras_tuner.engine import tuner as tuner_module
 import tensorflow.keras.backend as K
@@ -49,16 +50,11 @@ class Classifier:
 
         # Extract the input data (image characteristics) and output data (labels)
         image_characteristics = characteristics_df.iloc[:, 0:267].values
-        labels = characteristics_df.iloc[:, 268].values
-
-        # Split the data into training and testing sets
-        training_image_characteristics, testing_image_characteristics, self.train_labels, self.val_labels = train_test_split(
-            image_characteristics, labels, test_size=test_size, random_state=0)
+        self.labels = characteristics_df.iloc[:, 268].values
 
         # Normalize the data using the StandardScaler function
         scaler = StandardScaler()
-        self.norm_train_characteristics = scaler.fit_transform(training_image_characteristics)
-        self.norm_val_characteristics = scaler.transform(testing_image_characteristics)
+        self.norm_img_characteristics = scaler.fit_transform(image_characteristics)
 
     @staticmethod
     def custom_specificity(y_true, y_pred):
@@ -74,9 +70,17 @@ class Classifier:
         tp = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
         return tp / (tp + fn + K.epsilon())
 
-    def tune(self, tuner: tuner_module.Tuner, epochs: int):
-        tuner.search(self.norm_train_characteristics, self.train_labels, epochs=epochs,
-                     validation_data=(self.norm_val_characteristics, self.val_labels))
+    def tune(self, hypermodel, oracle, epochs: int, objective: str, batch_size_callout):
+        tuner = CustomTuner(
+            batch_size_callout=batch_size_callout,
+            hypermodel=hypermodel,
+            executions_per_trial=2,
+            directory='tuner',
+            overwrite=True,
+            oracle=oracle
+        )
+
+        tuner.search(self.norm_img_characteristics, self.labels, epochs=epochs, objective=objective)
 
     def fit(self, logs_folder, export_model=True, batch_size=16, epochs=300, units=180, optimizer='sgd', activation='relu', activation_output='sigmoid', loss='binary_crossentropy'):
         """This code is used to fit a classifier model with the given parameters. It initializes a run on Weights & Biases (Wandb) and logs the dataset generated for the model. It then creates a classifier model using the given parameters and fits it to the training data. The TrainingPlot and WandbCallback callbacks are used for visualizing the training process. Finally, if an export directory is provided, it exports the model to that directory and logs an artifact of the model on Wandb."""

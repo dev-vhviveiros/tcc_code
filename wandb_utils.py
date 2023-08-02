@@ -23,7 +23,7 @@ class WandbUtils:
         self.project_name = load_config("wb_project_name")
         self.project_path = load_config("wb_project_path")
         self.wdb_alias = wdb_data_alias
-        self._run = wandb.init(project=self.project_name)
+        self._run = wandb.init(project=self.project_name, group="main")
 
     def finish(self):
         """
@@ -104,8 +104,10 @@ class WandbUtils:
     def log_table(self):
         """ The function takes in the self parameter, which is a reference to the current instance of the class. Inside the function, a callback function is defined that takes in a run parameter. This callback function calls two other functions, __create_wandb_table and finish(), which create an interactive table in W&B with covid and non-covid images and masks, respectively. Finally, the execute_with() method is called with the callback and job_log_table parameters."""
         def callback(run):
-            self.__create_wandb_table(CovidDataset().images(), CovidMaskDataset().images(), CovidProcessedDataset().images(), "covid")
-            self.__create_wandb_table(NormalDataset().images(), NormalMaskDataset().images(), NormalProcessedDataset().images(), "non-covid")
+            self.__create_wandb_table(CovidDataset().images(), CovidMaskDataset().images(),
+                                      CovidProcessedDataset().images(), "covid")
+            self.__create_wandb_table(NormalDataset().images(), NormalMaskDataset().images(),
+                                      NormalProcessedDataset().images(), "non-covid")
 
         self.run_job(callback, WB_JOB_LOG_TABLE)
 

@@ -1,10 +1,11 @@
 import tensorflow as tf
 from classifier import *
-from cnn_hypermodel import CNNHyperModel
+from hypermodel import CustomHyperModel
 from dataset_representation import *
 from preprocessing import *
 from wandb_utils import WandbUtils
-from kerastuner.tuners import RandomSearch, Hyperband, BayesianOptimization
+from kerastuner.oracles import BayesianOptimizationOracle, RandomSearchOracle
+from tuner import CustomTuner
 
 # Check the availability of gpu
 gpus = tf.config.list_physical_devices('GPU')
@@ -46,9 +47,8 @@ if gpus:
                    Classifier.custom_sensitivity,
                    Classifier.custom_specificity]
 
-        hypermodel = CNNHyperModel(
+        hypermodel = CustomHyperModel(
             metrics=metrics,
-            batch_size_callout=lambda hp: hp.Int("batch_size", min_value=16, max_value=16, step=4),
             optimizer_callout=lambda hp: hp.Choice("optimizer", values=["sgd"]),
             activation_callout=lambda hp: hp.Choice("activation", values=["relu"]),
             activation_output_callout=lambda hp: hp.Choice("activation_output", values=["sigmoid"]),
@@ -57,21 +57,30 @@ if gpus:
             units_callout=lambda hp: hp.Int("units", min_value=180, max_value=180, step=50)
         )
 
-        tuner = BayesianOptimization(
-            hypermodel,
-            objective='val_accuracy',
-            executions_per_trial=2,
-            directory='tuner',
-            project_name='tcc',
-            overwrite=True
+        # tuner = BayesianOptimization(
+        #     hypermodel,
+        #     objective='val_accuracy',
+        #     executions_per_trial=2,
+        #     directory='tuner',
+        #     project_name='tcc',
+        #     overwrite=True
+        # )
+
+        objective = 'val_accuracy'
+
+        oracle = RandomSearchOracle(
+            objective=objective,
+            max_trials=2,
         )
 
-        # TODO/next steps:
+        # TODO next steps:
         # Integrate keras tuner to the wandb
+        def batch_size_callout(hp): return hp.Int("batch_size", min_value=8, max_value=16, step=4),
 
-        classifier.tune(tuner, 130)
+        wdb.finish()
+        classifier.tune(hypermodel, oracle, 130, objective, batch_size_callout)
         # classifier.fit(logs_folder='./logs/', export_model=False)
     finally:
-        wdb.finish()
+        pass
 else:
     print("No GPUs available")

@@ -1,5 +1,5 @@
 from kerastuner import HyperModel, HyperParameters
-from tensorflow.keras.layers import Dropout, Dense, ReLU
+from tensorflow.keras.layers import Dropout, Dense
 from tensorflow.keras.models import Sequential
 import tensorflow as tf
 config = tf.compat.v1.ConfigProto()
@@ -7,9 +7,8 @@ config.gpu_options.allow_growth = True
 sess = tf.compat.v1.Session(config=config)
 
 
-class CNNHyperModel(HyperModel):
-    def __init__(self, batch_size_callout, optimizer_callout, activation_callout, activation_output_callout, units_callout, dropout_callout, loss_callout, metrics=["accuracy"]):
-        self.batch_size_callout = batch_size_callout
+class CustomHyperModel(HyperModel):
+    def __init__(self, optimizer_callout, activation_callout, activation_output_callout, units_callout, dropout_callout, loss_callout, metrics=["accuracy"]):
         self.optimizer_callout = optimizer_callout
         self.activation_callout = activation_callout
         self.activation_output_callout = activation_output_callout
@@ -19,6 +18,7 @@ class CNNHyperModel(HyperModel):
         self.metrics = metrics
 
     def build(self, hp: HyperParameters):
+        self.hyperparameters = hp
         optimizer_hp = self.optimizer_callout(hp)
         activation_hp = self.activation_callout(hp)
         activation_output_hp = self.activation_output_callout(hp)
@@ -44,12 +44,3 @@ class CNNHyperModel(HyperModel):
         classifier.compile(optimizer=optimizer_hp,
                            loss=loss_hp, metrics=self.metrics)
         return classifier
-
-    def fit(self, hp, model, *args, **kwargs):
-        return model.fit(
-            *args,
-            batch_size=self.batch_size_callout(hp),
-            workers=6,
-            use_multiprocessing=True,
-            **kwargs,
-        )
