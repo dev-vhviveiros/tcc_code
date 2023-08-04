@@ -1,11 +1,7 @@
-from kerastuner import HyperModel, HyperParameters
+from kerastuner import HyperModel
 from tensorflow.keras.layers import Dropout, Dense
 from tensorflow.keras.models import Sequential
-import tensorflow as tf
-
-# Set GPU memory growth to True
-physical_devices = tf.config.experimental.list_physical_devices('GPU')
-tf.config.experimental.set_memory_growth(physical_devices[0], True)
+from tensorflow.keras.optimizers import SGD, Adam, RMSprop, Adagrad, Adadelta
 
 
 class CustomHyperModel(HyperModel):
@@ -13,7 +9,7 @@ class CustomHyperModel(HyperModel):
     A custom hypermodel subclassed from `HyperModel` that defines the architecture of the neural network.
     """
 
-    def __init__(self, optimizer_callout, activation_callout, activation_output_callout, units_callout, dropout_callout, loss_callout, metrics=["accuracy"]):
+    def __init__(self, optimizer_callout, activation_callout, activation_output_callout, units_callout, dropout_callout, loss_callout, learning_rate_callout, metrics=["accuracy"]):
         """
         Initializes a new instance of the CustomHyperModel class.
 
@@ -32,46 +28,69 @@ class CustomHyperModel(HyperModel):
         self.units_callout = units_callout
         self.dropout_callout = dropout_callout
         self.loss_callout = loss_callout
+        self.learning_rate_callout = learning_rate_callout
         self.metrics = metrics
 
-    def build(self, hp: HyperParameters):
+    def build(self, hp):
         """
-        Builds the neural network with the given hyperparameters.
+        Builds a Keras model with the specified hyperparameters.
 
         Args:
-            hp: A `HyperParameters` object representing the hyperparameters for the neural network.
+            hp (HyperParameters): A HyperParameters object containing the hyperparameters to use.
 
         Returns:
-            A compiled `Sequential` model.
+            A compiled Keras model with the specified hyperparameters.
         """
-        # Save the hyperparameters for later use
-        self.hyperparameters = hp
-
-        # Get the hyperparameters for the optimizer, activation functions, units, dropout rate, and loss function
+        # Get the hyperparameters
         optimizer_hp = self.optimizer_callout(hp)
+        learning_rate_hp = self.learning_rate_callout(hp)
         activation_hp = self.activation_callout(hp)
         activation_output_hp = self.activation_output_callout(hp)
-        units_hp = self.units_callout(hp)
-        dropout_hp = self.dropout_callout(hp)
         loss_hp = self.loss_callout(hp)
+        dropout_hp = self.dropout_callout(hp)
+        units_hp = self.units_callout(hp)
 
-        # Define the architecture of the neural network
+        # Get the optimizer
+        optimizer = self.get_optimizer(optimizer_hp, learning_rate_hp)
+
+        # Create the model
         classifier = Sequential()
+
+        # Add the layers
         classifier.add(Dense(units=units_hp, activation=activation_hp, input_shape=(267,)))
         classifier.add(Dropout(rate=dropout_hp))
-        classifier.add(Dense(units=units_hp, activation=activation_hp))
-        classifier.add(Dropout(rate=dropout_hp))
-        classifier.add(Dense(units=units_hp, activation=activation_hp))
-        classifier.add(Dropout(rate=dropout_hp))
-        classifier.add(Dense(units=units_hp, activation=activation_hp))
-        classifier.add(Dropout(rate=dropout_hp))
-        classifier.add(Dense(units=units_hp, activation=activation_hp))
-        classifier.add(Dropout(rate=dropout_hp))
-        classifier.add(Dense(units=units_hp, activation=activation_hp))
-        classifier.add(Dropout(rate=dropout_hp))
+        for _ in range(5):
+            classifier.add(Dense(units=units_hp, activation=activation_hp))
+            classifier.add(Dropout(rate=dropout_hp))
+
+        # Add the output layer
         classifier.add(Dense(units=1, activation=activation_output_hp))
 
         # Compile the model with the given optimizer, loss function, and metrics
-        classifier.compile(optimizer=optimizer_hp, loss=loss_hp, metrics=self.metrics)
+        classifier.compile(optimizer=optimizer, loss=loss_hp, metrics=self.metrics)
 
         return classifier
+
+    def get_optimizer(self, optimizer_name, learning_rate):
+        """
+        Returns an instance of an optimizer with the specified name and learning rate.
+
+        Args:
+            optimizer_name (str): The name of the optimizer to use.
+            learning_rate (float): The learning rate to use for the optimizer.
+
+        Returns:
+            An instance of the specified optimizer with the specified learning rate.
+        """
+        optimizers = {
+            "sgd": SGD,
+            "adam": Adam,
+            "rmsprop": RMSprop,
+            "adagrad": Adagrad,
+            "adadelta": Adadelta
+        }
+
+        if optimizer_name not in optimizers:
+            raise ValueError(f"Invalid optimizer name: {optimizer_name}")
+        optimizer_class = optimizers[optimizer_name]
+        return optimizer_class(learning_rate)

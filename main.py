@@ -8,10 +8,11 @@ from kerastuner.oracles import BayesianOptimizationOracle
 
 # Check the availability of gpu
 gpus = tf.config.list_physical_devices('GPU')
+tf.config.experimental.set_memory_growth(gpus[0], True)
 
 if gpus:
     # Initialize the WandbUtils class and start a new run
-    wdb = WandbUtils("basic", mode="disabled")
+    wdb = WandbUtils("basic")
     try:
         # # Load the dataset artifacts
         # covid_artifact = wdb.load_dataset_artifact(CovidDataset())
@@ -53,7 +54,8 @@ if gpus:
             activation_output_callout=lambda hp: hp.Choice("activation_output", values=["sigmoid"]),
             loss_callout=lambda hp: hp.Choice("loss", values=["binary_crossentropy"]),
             dropout_callout=lambda hp: hp.Float("dropout", min_value=0.15, max_value=0.2, step=0.05),
-            units_callout=lambda hp: hp.Int("units", min_value=180, max_value=180, step=50)
+            units_callout=lambda hp: hp.Int("units", min_value=180, max_value=180, step=50),
+            learning_rate_callout=lambda hp: hp.Float("learning_rate", min_value=1e-6, max_value=1e-2, step=1e-4)
         )
 
         objective = 'val_accuracy'
