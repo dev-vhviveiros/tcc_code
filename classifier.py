@@ -19,22 +19,22 @@ import tensorflow.keras.backend as K
 
 class Classifier:
     """
-    Uso: 
+    Use: 
     input_file = your_file.csv when you want to use a new model
     import_model = if you saved a model and want to import it
     """
 
-    def __init__(self, characteristics_artifact: str = None, model_artifact: str = None, test_pool: float = 0.2):
+    def __init__(self, characteristics_artifact: str = None, model_artifact: str = None):
         self.wdb_project = load_config("wb_project_name")
         if characteristics_artifact is not None:
-            self.__load_characteristics(characteristics_artifact, test_pool)
+            self.__load_characteristics(characteristics_artifact)
         if model_artifact is not None:
             self.__import_model(model_artifact)
 
         print("Initializing classifier project: %s with:\n Characteristics: %s\nModel: %s" %
               (self.wdb_project, characteristics_artifact, model_artifact))
 
-    def __load_characteristics(self, characteristics_artifact, test_size=0.2):
+    def __load_characteristics(self, characteristics_artifact):
         """
         Loads the image characteristics and labels from a CSV file, splits the data into training and testing sets, and normalizes the image characteristics using the StandardScaler function.
 
@@ -81,66 +81,6 @@ class Classifier:
         )
 
         tuner.search(self.norm_img_characteristics, self.labels, epochs=epochs, objective=objective)
-
-    def fit(self, logs_folder, export_model=True, batch_size=16, epochs=300, units=180, optimizer='sgd', activation='relu', activation_output='sigmoid', loss='binary_crossentropy'):
-        """This code is used to fit a classifier model with the given parameters. It initializes a run on Weights & Biases (Wandb) and logs the dataset generated for the model. It then creates a classifier model using the given parameters and fits it to the training data. The TrainingPlot and WandbCallback callbacks are used for visualizing the training process. Finally, if an export directory is provided, it exports the model to that directory and logs an artifact of the model on Wandb."""
-        date_time = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
-        wb_config = {
-            "epochs": epochs,
-            "batch_size": batch_size,
-            "units": units,
-            "optimizer": optimizer,
-            "activation": activation,
-            "activation_output": activation_output,
-            "loss": loss
-        }
-
-        with (wandb.init(project=self.wdb_project, job_type=WB_JOB_MODEL_FIT, magic=True, name="fit__" + date_time,
-                         config=wb_config)) as run:
-            generated_dataset = wandb.Artifact(
-                "characteristics", type=DATASET_TAG)
-            generated_dataset.add_file(
-                "characteristics.csv")
-            # run.log_artifact(generated_dataset)
-            # print("\nExporting generated dataset...\n")
-
-            # check_folder(logs_folder, False)
-            # log_dir = logs_folder + date_time
-            # tensorboard_callback = tf.keras.callbacks.TensorBoard(
-            #     log_dir=log_dir, histogram_freq=1)
-            self.model = classifier_model(optimizer, activation, activation_output, units,
-                                          ['accuracy', Precision(), AUC(), Recall()], loss)
-            self.model.fit(self.norm_train_characteristics, self.train_labels, batch_size=batch_size, epochs=epochs, verbose=1, workers=12, use_multiprocessing=True,
-                           validation_data=(self.norm_val_characteristics, self.val_labels), callbacks=[TrainingPlot(epochs), WandbCallback(data_type="histogram")])
-            if export_model:
-                self.__export_model()
-
-            run.log_artifact(WandbUtils.__generate_model_artifact())
-            print("\nExporting model...\n")
-
-    def __export_model(self):
-        """This code is a function that exports a model. It takes two parameters: save_dir (the directory where the model should be saved) and date_time (the current date and time). 
-        The first line calls the check_folder() function to check if the save_dir exists, and creates it if it does not. 
-        The second line saves the model in the save_dir directory with the name "model.h5"."""
-        model_path = Model().path
-        check_folder(model_path, False)
-        # self.model.save(save_dir + 'save_' + date_time + '.h5')
-        self.model.save(model_path)
-
-    def __import_model(self, model_dir, optimizer='sgd', activation='relu', activation_output='sigmoid', loss='binary_crossentropy', units=180):
-        """This function creates a classifier model with the given parameters and loads the weights from the given directory. 
-        Parameters: 
-        model_dir (string): The directory of the model weights to be loaded 
-        optimizer (string): The optimizer algorithm used for training 
-        activation (string): The activation function used in the model 
-        activation_output (string): The activation function used for the output layer 
-        loss (string): The loss function used for training 
-        units (integer): Number of units in the hidden layers 
-        Returns: self.model (object)"""
-        self.model = classifier_model(optimizer, activation, activation_output, units,
-                                      ['accuracy', Precision(), AUC(), Recall()], loss)
-        self.model.load_weights(model_dir)
-        return self.model
 
     def plot_confusion_matrix(self,
                               title='Confusion matrix',

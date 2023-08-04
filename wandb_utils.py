@@ -1,4 +1,3 @@
-
 import numpy as np
 import wandb
 from image import Image, ImageLoader
@@ -18,7 +17,18 @@ WB_JOB_LOG_TRAINING_DATA = "log_training_data"
 
 
 class WandbUtils:
+    """ A utility class for interacting with the Weights and Biases (WandB) platform.
+    Args:
+        wdb_data_alias (str): The alias of the WandB data to use for this run.
+    """
+
     def __init__(self, wdb_data_alias):
+        """
+        Initializes a new instance of the `WandbUtils` class.
+
+        Args:
+            wdb_data_alias (str): The alias of the WandB data to use for this run.
+        """
         self.project_owner = load_config("wb_project_owner")
         self.project_name = load_config("wb_project_name")
         self.project_path = load_config("wb_project_path")
@@ -27,11 +37,10 @@ class WandbUtils:
 
     def finish(self):
         """
-        Finish the current WandB run by calling the `finish` method of the `run` object. Must be called after finishing the run jobs.
-
-        Returns:
-            None
+        Finish the current WandB run by calling the `finish` method of the `run` object.
+        This method must be called at the end of each run to ensure that all data is properly logged.
         """
+        # Call the `finish` method of the `run` object to finalize the run.
         self._run.finish()
 
     def run_job(self, callback, job_type) -> any:
@@ -45,46 +54,73 @@ class WandbUtils:
         Returns:
             any: The result of the callback function.
         """
+        # Call the callback function with the `run` object as an argument and store the result.
         result = callback(self._run)
+
+        # Print a message indicating that the job is done.
         print("JOB: <" + job_type + "> DONE!")
+
+        # Return the result of the callback function.
         return result
 
     def download_artifact(self, name, relative_path, alias='latest'):
-        """This function downloads an artifact from the W&B API. 
-        Parameters: 
-                self: the object that contains the project name 
-                name: the name of the artifact to be downloaded 
-                relative_path: a relative path to where the artifact should be downloaded 
-                alias (optional): a string that specifies which version of the artifact should be (defaults to 'latest') 
-        The function uses the W&B API to get an instance of the specified artifact, then downloads it to specified relative path. Finally, it prints a message indicating that the download was successful."""
+        """
+        Download an artifact from the W&B API.
+
+        Args:
+            name (str): The name of the artifact to be downloaded.
+            relative_path (str): A relative path to where the artifact should be downloaded.
+            alias (str, optional): A string that specifies which version of the artifact should be downloaded (defaults to 'latest').
+
+        Returns:
+            None
+        """
+        # Create a new instance of the W&B API.
         api = wandb.Api()
+
+        # Get an instance of the specified artifact using the W&B API.
         artifact = api.artifact('vhviveiros/' + self.project_name + '/' + name + ":" + alias)
+
+        # Download the artifact to the specified relative path.
         artifact.download(root=abs_path(relative_path))
+
+        # Print a message indicating that the download was successful.
         print("Artifact " + name + " downloaded")
 
     def __create_wandb_table(self, images, masks, processed, tag):
-        """This function creates a wandb table. It takes four parameters: images, masks, processed, and tag. The number of images, masks, and processed images must be the same or an exception is raised.
+        """
+        Create a W&B table with the given images, masks, processed images, and tag.
 
-        The function then creates a table with three columns: Filename, Image, and Processed. For each item in the data array (which contains the images, masks and processed images), it creates an image object for each item. It then converts the mask data so that all values greater than 0 are considered 1. Finally it logs the table to wandb with the tag provided as a parameter."""
-        if (len(images) != len(masks) or len(images) != len(processed)):
-            raise Exception(
-                "The number of images, masks and processed images must be the same")
+        Args:
+            images (list): A list of image file paths.
+            masks (list): A list of corresponding mask file paths.
+            processed (list): A list of corresponding processed image file paths.
+            tag (str): A string that specifies the tag for the W&B table.
+
+        Returns:
+            None
+        """
+        # Check that the number of images, masks, and processed images are the same.
+        if len(images) != len(masks) or len(images) != len(processed):
+            raise Exception("The number of images, masks, and processed images must be the same")
+
+        # Create a numpy array with the images, masks, and processed images.
         data = np.asarray([images, masks, processed])
-        table = wandb.Table(
-            columns=["Filename", "Image", "Processed"])
+
+        # Create a new W&B table with the columns "Filename", "Image", and "Processed".
+        table = wandb.Table(columns=["Filename", "Image", "Processed"])
+
+        # Iterate over each row in the data array and add it to the W&B table.
         for i in data.T:
+            # Create a W&B image object for the original image.
             img = Image(i[0])
+            wandb_img = wandb.Image(img.data)
+
+            # Create a W&B image object for the mask.
             mask = Image(i[1])
-            img_proc = Image(i[2])
-
-            img_data = img.data
             mask_data = mask.data
-            img_proc_data = img_proc.data
-
-            # The mask data must be converted in a way that values greater than 0 are considered 1.
             mask_data[mask_data > 0] = 1
-
-            wandb_img = wandb.Image(img_data, masks={
+            wandb_mask = wandb.Image(mask_data, masks={
                 "mask": {
                     "mask_data": np.asarray(mask_data),
                     "class_labels": {
@@ -93,155 +129,259 @@ class WandbUtils:
                 }
             })
 
-            wandb_img_proc = wandb.Image(img_proc_data)
+            # Create a W&B image object for the processed image.
+            img_proc = Image(i[2])
+            wandb_img_proc = wandb.Image(img_proc.data)
+
+            # Add the row to the W&B table.
             table.add_data(img.file_path, wandb_img, wandb_img_proc)
-        wandb.log({tag + " Table": table})
+
+        # Log the W&B table with the specified tag.
+        wandb.log({f"{tag} Table": table})
 
     def __get_wb_artifact_path(self, tag: str) -> str:
-        """This function gets the path of a model artifact from the project. The function returns a string in the format 'project_path/artifact_model_tag:wdb_data_alias'."""
+        """
+        Get the path of a W&B artifact from the project.
+
+        Args:
+            tag (str): A string that specifies the tag for the W&B artifact.
+
+        Returns:
+            str: A string in the format 'project_path/artifact_model_tag:wdb_data_alias'.
+        """
+        # Return a string in the format 'project_path/artifact_model_tag:wdb_data_alias'.
         return '%s/%s:%s' % (self.project_path, tag, self.wdb_alias)
 
     def log_table(self):
-        """ The function takes in the self parameter, which is a reference to the current instance of the class. Inside the function, a callback function is defined that takes in a run parameter. This callback function calls two other functions, __create_wandb_table and finish(), which create an interactive table in W&B with covid and non-covid images and masks, respectively. Finally, the execute_with() method is called with the callback and job_log_table parameters."""
+        """
+        Log an interactive table in W&B with covid and non-covid images and masks.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
+        # Define a callback function that takes in a `run` parameter.
         def callback(run):
+            # Create a W&B table with covid images and masks.
             self.__create_wandb_table(CovidDataset().images(), CovidMaskDataset().images(),
                                       CovidProcessedDataset().images(), "covid")
+
+            # Create a W&B table with non-covid images and masks.
             self.__create_wandb_table(NormalDataset().images(), NormalMaskDataset().images(),
                                       NormalProcessedDataset().images(), "non-covid")
 
+            # Finish the current W&B run.
+            self.finish()
+
+        # Call the `run_job` method with the callback function and the `WB_JOB_LOG_TABLE` job type.
         self.run_job(callback, WB_JOB_LOG_TABLE)
 
     def log_histogram_chart_comparison(self):
-        """This function creates a log of histogram chart comparison. It first creates two image generators from cov_processed_path and non_cov_processed_path. Then it creates two histogram data sets from the generated images, cov_hist_data and non_cov_hist_data. The data is then converted to a list of tuples and stored in cov_table and non_cov_table. Finally, the tables are logged in the run."""
+        """
+        Log a comparison of histogram charts for covid and non-covid images.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
+        # Define a callback function that takes in a `run` parameter.
         def callback(run):
-            # Load the image data for the cov and non-cov images
+            # Load the image data for the covid and non-covid images.
             cov_processed_gen = ImageLoader().load_from(CovidProcessedDataset().path)
             non_cov_processed_gen = ImageLoader().load_from(NormalProcessedDataset().path)
 
-            # Define a helper function to generate histogram data for an image generator
+            # Define a helper function to generate histogram data for an image generator.
             def generate_histogram_data(image_gen):
-                # Define the length of the histogram
+                # Define the length of the histogram.
                 HISTOGRAM_LENGTH = 254
-                # Initialize the histogram data to all zeros
+                # Initialize the histogram data to all zeros.
                 hist_data = [0] * HISTOGRAM_LENGTH
-                # Loop over each image in the generator
+                # Loop over each image in the generator.
                 for _, img in enumerate(image_gen):
-                    # Generate the histogram for the image
+                    # Generate the histogram for the image.
                     hist = img.hist()
-                    # Add the histogram data to the overall histogram data
+                    # Add the histogram data to the overall histogram data.
                     hist_data += hist[:-1]
-                # Convert the histogram data to a list of tuples
-                # where each tuple contains the intensity value and the corresponding histogram value
+                # Convert the histogram data to a list of tuples where each tuple contains the intensity value and the corresponding histogram value.
                 return [(i, val) for i, val in enumerate(hist_data)]
 
-            # Generate histogram data for the cov and non-cov images
+            # Generate histogram data for the covid and non-covid images.
             cov_hist_data = generate_histogram_data(cov_processed_gen)
             non_cov_hist_data = generate_histogram_data(non_cov_processed_gen)
 
-            # Create wandb.Table objects to represent the histogram data
+            # Create wandb.Table objects to represent the histogram data.
             cov_table = wandb.Table(data=cov_hist_data, columns=["Intensity", "Value"])
             non_cov_table = wandb.Table(data=non_cov_hist_data, columns=["Intensity", "Value"])
 
-            # Create line and scatter plots for the histogram data
-            cov_line_plot = wandb.plot.line(cov_table, x="Intensity", y="Value", title="Cov Line Plot")
-            non_cov_line_plot = wandb.plot.line(non_cov_table, x="Intensity", y="Value", title="Normal Line Plot")
-            cov_scatter_plot = wandb.plot.scatter(cov_table, x="Intensity", y="Value", title="Cov Line Plot")
-            non_cov_scatter_plot = wandb.plot.scatter(non_cov_table, x="Intensity", y="Value", title="Normal Line Plot")
+            # Create line and scatter plots for the histogram data.
+            cov_line_plot = wandb.plot.line(cov_table, x="Intensity", y="Value", title="Covid Line Plot")
+            non_cov_line_plot = wandb.plot.line(non_cov_table, x="Intensity", y="Value", title="Non-Covid Line Plot")
+            cov_scatter_plot = wandb.plot.scatter(cov_table, x="Intensity", y="Value", title="Covid Scatter Plot")
+            non_cov_scatter_plot = wandb.plot.scatter(
+                non_cov_table, x="Intensity", y="Value", title="Non-Covid Scatter Plot")
 
-            # Log the histogram data and plots to the wandb run
-            run.log({"cov_hist_data": cov_table,
-                    "non_cov_hist_data": non_cov_table,
-                     "cov_line_plot": cov_line_plot,
-                     "non_cov_line_plot": non_cov_line_plot,
-                     "cov_scatter_plot": cov_scatter_plot,
-                     "non_cov_scatter_plot": non_cov_scatter_plot})
+            # Log the histogram data and plots to the wandb run.
+            run.log({
+                "covid_histogram_data": cov_table,
+                "non_covid_histogram_data": non_cov_table,
+                "covid_line_plot": cov_line_plot,
+                "non_covid_line_plot": non_cov_line_plot,
+                "covid_scatter_plot": cov_scatter_plot,
+                "non_covid_scatter_plot": non_cov_scatter_plot
+            })
 
-        # Run the callback function as a job with a specified job type
+            # Finish the current W&B run.
+            self.finish()
+
+        # Call the `run_job` method with the callback function and the `WB_JOB_HISTOGRAM_CHART` job type.
         self.run_job(callback, WB_JOB_HISTOGRAM_CHART)
 
     def upload_dataset_artifact(self, dataset_artifact: DatasetRepresentation):
-        """This method is used to upload a dataset artifact to W&B using the provided WBDatasetArtifact object. It creates a W&B artifact with the tag and type specified in the WBDatasetArtifact object and adds the directory specified in the object to the artifact. It then logs the artifact to W&B using the provided aliases.
+        """
+        Upload a dataset artifact to W&B using the provided DatasetRepresentation object.
 
-        Parameters:
-            dataset_artifact (WBDatasetArtifact): An instance of WBDatasetArtifact class that encapsulates information about the dataset artifact to upload."""
+        Args:
+            dataset_artifact (DatasetRepresentation): An instance of the DatasetRepresentation class that encapsulates information about the dataset artifact to upload.
+
+        Returns:
+            None
+        """
+        # Define a callback function that takes in a `run` parameter.
         def callback(run):
+            # Create a new W&B artifact with the tag and type specified in the DatasetRepresentation object.
             artifact = wandb.Artifact(dataset_artifact.tag, type=DATASET_TAG)
+
+            # Add the directory specified in the DatasetRepresentation object to the artifact.
             artifact.add_dir(dataset_artifact.path)
+
+            # Log the artifact to W&B using the provided aliases.
             run.log_artifact(artifact, aliases=dataset_artifact.aliases + [self.wdb_alias])
 
+        # Call the `run_job` method with the callback function and the `WB_JOB_UPLOAD_DATASET` job type.
         self.run_job(callback, WB_JOB_UPLOAD_DATASET)
 
     def load_dataset_artifact(self, dataset_artifact: DatasetRepresentation) -> str:
-        """Loads a previously uploaded dataset artifact and downloads it to the local machine.
-            Parameters:
-                dataset_artifact (WBDatasetArtifact): An instance of the WBDatasetArtifact class that specifies the artifact to be loaded.
+        """
+        Loads a previously uploaded dataset artifact and downloads it to the local machine.
 
-            Returns:
-                A string representing the local path where the artifact was downloaded to."""
+        Args:
+            dataset_artifact (DatasetRepresentation): An instance of the DatasetRepresentation class that specifies the artifact to be loaded.
+
+        Returns:
+            str: A string representing the local path where the artifact was downloaded to.
+        """
+        # Define a callback function that takes in a `run` parameter.
         def callback(run):
+            # Get the W&B artifact path for the specified dataset artifact.
             artifact_wdb_path = dataset_artifact.wb_artifact_path(self.project_path, self.wdb_alias)
+            # Use the W&B artifact with the specified path and type.
             artifact = run.use_artifact(artifact_wdb_path, type=DATASET_TAG)
+            # Download the artifact to the local machine and return the path where it was downloaded to.
             return artifact.download()
 
+        # Call the `run_job` method with the callback function and the `WB_JOB_LOAD_DATASET` job type.
         return self.run_job(callback, WB_JOB_LOAD_DATASET)
 
     def load_model_artifact(self, run) -> str:
-        """This function loads a model from a run in W&B. 
-        It takes in a parameter 'run' which is the run from which the model should be loaded. 
-        The function first uses the W&B artifact associated with the run to download the model. It then returns the directory of the model."""
-        artifact_wdb_path = self.__get_wb_artifact_path(MODEL_TAG)
-        dataset_artifact = run.use_artifact(artifact_wdb_path, type=MODEL_TAG)
-        model_dir = dataset_artifact.download()
+        """
+        Load a model from a W&B run.
 
-        return model_dir
+        Args:
+            run (wandb.Run): An instance of the wandb.Run class that represents the W&B run to load the model from.
+
+        Returns:
+            str: A string representing the local path where the model was downloaded to.
+        """
+        # Get the W&B artifact path for the model artifact.
+        artifact_wdb_path = self.__get_wb_artifact_path(MODEL_TAG)
+
+        # Use the W&B artifact with the specified path and type.
+        artifact = run.use_artifact(artifact_wdb_path, type=MODEL_TAG)
+
+        # Download the artifact to the local machine and return the path where it was downloaded to.
+        return artifact.download()
 
     def generate_model_artifact(self):
-        """This code defines a function called generate_model_artifact that takes in an object of the class it is defined in as a parameter. The function creates an artifact object from the Wandb library, with the tag given by the self.artifact_model_tag parameter and type set to "model". It then adds a file located at model_path to the artifact and returns it."""
+        """
+        Generate a W&B artifact for the model.
+
+        Args:
+            None
+
+        Returns:
+            wandb.Artifact: An instance of the wandb.Artifact class that represents the model artifact.
+        """
+        # Create a new W&B artifact with the tag and type specified in the constants.
         model = wandb.Artifact(MODEL_TAG, type=MODEL_TAG)
+
+        # Add the model file to the artifact.
         model.add_file(Model().path)
+
+        # Return the model artifact.
         return model
 
     def upload_model_artifact(self, run):
-        """This function uploads a model from a run in W&B. 
-        It takes in a parameter 'run' which is the run from which the model should be uploaded. 
-        The function first uses the W&B artifact associated with the run to upload the model. It then returns the directory of the model."""
+        """
+        Upload the model artifact to W&B using the provided run.
+
+        Args:
+            run (wandb.Run): An instance of the wandb.Run class that represents the W&B run to upload the model artifact to.
+
+        Returns:
+            None
+        """
+        # Generate a new W&B artifact for the model.
         model_artifact = self.generate_model_artifact()
+
+        # Log the model artifact to W&B using the provided aliases.
         run.log_artifact(model_artifact, aliases=[self.wdb_alias])
+
+        # Finish the current W&B run.
+        self.finish()
 
     def load_characteristics(self):
         """
         Downloads the characteristics artifact from the W&B run and returns it.
 
         Returns:
-            The downloaded characteristics artifact.
+            str: A string representing the local path where the characteristics artifact was downloaded to.
         """
+        # Define a callback function that takes in a `run` parameter.
         def callback(run):
+            # Get the W&B artifact path for the characteristics artifact.
             artifact_wdb_path = Characteristics().wb_artifact_path(self.project_path, self.wdb_alias)
+            # Use the W&B artifact with the specified path and type.
             artifact = run.use_artifact(artifact_wdb_path, type=CHARACTERISTICS_TAG)
+            # Download the artifact to the local machine and return the path where it was downloaded to.
             return artifact.download() + "/" + load_config("generated_csv_file")
 
+        # Call the `run_job` method with the callback function and the `WB_JOB_LOAD_DATASET` job type.
         return self.run_job(callback, WB_JOB_LOAD_DATASET)
 
     def upload_characteristics(self):
         """
-        Uploads the characteristics file to the W&B run as an artifact.
+        Upload the characteristics file to W&B as an artifact.
+
+        Args:
+            None
 
         Returns:
-            None.
+            None
         """
+        # Define a callback function that takes in a `run` parameter.
         def callback(run):
+            # Create a new W&B artifact with the tag and type specified in the constants.
             artifact = wandb.Artifact(CHARACTERISTICS_TAG, type=CHARACTERISTICS_TAG)
+
+            # Add the characteristics file to the artifact.
             artifact.add_file(Characteristics().path)
+
+            # Log the artifact to W&B using the provided aliases.
             run.log_artifact(artifact, aliases=[CHARACTERISTICS_TAG, self.wdb_alias])
 
+        # Call the `run_job` method with the callback function and the `WB_JOB_UPLOAD_DATASET` job type.
         self.run_job(callback, WB_JOB_UPLOAD_DATASET)
-
-    def log_trainset(self, training_set, testing_set):  # TODO
-        def callback(run):
-            raw_data = wandb.Artifact(
-                COVID_TAG, type=DATASET_TAG,
-                description="Raw covid dataset, split into train/test",
-                metadata={"sizes": [len(dataset) for dataset in [training_set, testing_set]]})
-            run.log_artifact(raw_data)
-
-        self.run_job(callback)

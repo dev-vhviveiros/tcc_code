@@ -4,15 +4,14 @@ from hypermodel import CustomHyperModel
 from dataset_representation import *
 from preprocessing import *
 from wandb_utils import WandbUtils
-from kerastuner.oracles import BayesianOptimizationOracle, RandomSearchOracle
-from tuner import CustomTuner
+from kerastuner.oracles import BayesianOptimizationOracle
 
 # Check the availability of gpu
 gpus = tf.config.list_physical_devices('GPU')
 
 if gpus:
     # Initialize the WandbUtils class and start a new run
-    wdb = WandbUtils("basic")
+    wdb = WandbUtils("basic", mode="disabled")
     try:
         # # Load the dataset artifacts
         # covid_artifact = wdb.load_dataset_artifact(CovidDataset())
@@ -53,34 +52,20 @@ if gpus:
             activation_callout=lambda hp: hp.Choice("activation", values=["relu"]),
             activation_output_callout=lambda hp: hp.Choice("activation_output", values=["sigmoid"]),
             loss_callout=lambda hp: hp.Choice("loss", values=["binary_crossentropy"]),
-            dropout_callout=lambda hp: hp.Float("dropout", min_value=0.2, max_value=0.2, step=0.05),
+            dropout_callout=lambda hp: hp.Float("dropout", min_value=0.15, max_value=0.2, step=0.05),
             units_callout=lambda hp: hp.Int("units", min_value=180, max_value=180, step=50)
         )
 
-        # tuner = BayesianOptimization(
-        #     hypermodel,
-        #     objective='val_accuracy',
-        #     executions_per_trial=2,
-        #     directory='tuner',
-        #     project_name='tcc',
-        #     overwrite=True
-        # )
-
         objective = 'val_accuracy'
 
-        oracle = RandomSearchOracle(
+        oracle = BayesianOptimizationOracle(
             objective=objective,
             max_trials=2,
         )
 
-        # TODO next steps:
-        # Integrate keras tuner to the wandb
         def batch_size_callout(hp): return hp.Int("batch_size", min_value=8, max_value=16, step=4),
-
-        wdb.finish()
-        classifier.tune(hypermodel, oracle, 130, objective, batch_size_callout)
-        # classifier.fit(logs_folder='./logs/', export_model=False)
     finally:
-        pass
+        wdb.finish()
+    classifier.tune(hypermodel, oracle, 130, objective, batch_size_callout)
 else:
     print("No GPUs available")
