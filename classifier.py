@@ -3,6 +3,7 @@ import itertools
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn.model_selection import train_test_split
 import tensorflow.keras.backend as K
 from sklearn.preprocessing import StandardScaler
 
@@ -41,7 +42,7 @@ class Classifier:
               f"Characteristics: {characteristics_artifact}\n"
               f"Model: {model_artifact}")
 
-    def __load_characteristics(self, characteristics_artifact: str, test_size: float = 0.2):
+    def __load_characteristics(self, characteristics_artifact, test_size=0.2):
         """
         Loads the image characteristics and labels from a CSV file, splits the data into training and testing sets, and normalizes the image characteristics using the StandardScaler function.
 
@@ -53,18 +54,20 @@ class Classifier:
         """
         # Read the CSV file containing the image characteristics
         characteristics_df = pd.read_csv(characteristics_artifact)
+        print("SHAPE:" + str(characteristics_df.shape))
 
         # Extract the input data (image characteristics) and output data (labels)
-        image_characteristics = characteristics_df.iloc[:, 0:267].values
-        self.labels = characteristics_df.iloc[:, 268].values
+        image_characteristics = characteristics_df.iloc[:, 0:268].values
+        labels = characteristics_df.iloc[:, 268].values
+
+        # Split the data into training and testing sets
+        training_image_characteristics, testing_image_characteristics, self.train_labels, self.val_labels = train_test_split(
+            image_characteristics, labels, test_size=test_size, random_state=0)
 
         # Normalize the data using the StandardScaler function
         scaler = StandardScaler()
-        self.norm_img_characteristics = scaler.fit_transform(image_characteristics)
-
-        # Print a message indicating the shape of the data and the proportion used for testing
-        print(f"Loaded image characteristics from {characteristics_artifact} with shape: {characteristics_df.shape}")
-        print(f"Split data into training and testing sets with test size: {test_size}")
+        self.norm_train_characteristics = scaler.fit_transform(training_image_characteristics)
+        self.norm_val_characteristics = scaler.transform(testing_image_characteristics)
 
     @staticmethod
     def custom_specificity(y_true, y_pred):
@@ -133,7 +136,8 @@ class Classifier:
         )
 
         # Search for the best hyperparameters using the custom tuner
-        tuner.search(self.norm_img_characteristics, self.labels, epochs=epochs, objective=objective)
+        tuner.search(self.norm_train_characteristics, self.train_labels, epochs=epochs, objective=objective,
+                     validation_data=(self.norm_val_characteristics, self.val_labels))
 
     def plot_confusion_matrix(self, title: str, cmap=None, normalize: bool = False, save_dir: str = None):
         """

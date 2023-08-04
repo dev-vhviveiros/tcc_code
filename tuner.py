@@ -22,7 +22,7 @@ class CustomTuner(kt.Tuner):
         self.batch_size_callout = batch_size_callout
         super().__init__(*args, **kwargs)
 
-    def run_trial(self, trial, trainX, trainY, epochs, objective):
+    def run_trial(self, trial, trainX, trainY, epochs, objective, validation_data):
         """
         Runs a single trial with the given hyperparameters.
 
@@ -39,9 +39,6 @@ class CustomTuner(kt.Tuner):
         # Get the hyperparameters for the current trial
         hp = trial.hyperparameters
 
-        # Get the name of the objective metric
-        objective_name_str = objective
-
         # Create the model with the current trial hyperparameters
         model = self.hypermodel.build(hp)
 
@@ -55,16 +52,16 @@ class CustomTuner(kt.Tuner):
                                 trainY,
                                 batch_size=batch_size[0],
                                 epochs=epochs,
-                                validation_split=0.1,
+                                validation_data=validation_data,
                                 workers=6,
                                 use_multiprocessing=True,
                                 callbacks=[WandbCallback()])
 
             # Get the validation objective of the last epoch model which is fully trained
-            val_acc = history.history[f'val_{objective}'][-1]
+            objective_value = history.history[objective][-1]
 
             # Send the objective data to the oracle for comparison of hyperparameters
-            self.oracle.update_trial(trial.trial_id, {objective_name_str: val_acc})
+            self.oracle.update_trial(trial.trial_id, {objective: objective_value})
 
             # End the run on the Weights & Biases dashboard
             run.finish()

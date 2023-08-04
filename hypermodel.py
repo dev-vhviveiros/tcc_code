@@ -57,7 +57,7 @@ class CustomHyperModel(HyperModel):
         classifier = Sequential()
 
         # Add the layers
-        classifier.add(Dense(units=units_hp, activation=activation_hp, input_shape=(267,)))
+        classifier.add(Dense(units=units_hp, activation=activation_hp, input_shape=(268,)))
         classifier.add(Dropout(rate=dropout_hp))
         for _ in range(5):
             classifier.add(Dense(units=units_hp, activation=activation_hp))

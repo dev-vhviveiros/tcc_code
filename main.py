@@ -53,8 +53,8 @@ if gpus:
             activation_callout=lambda hp: hp.Choice("activation", values=["relu"]),
             activation_output_callout=lambda hp: hp.Choice("activation_output", values=["sigmoid"]),
             loss_callout=lambda hp: hp.Choice("loss", values=["binary_crossentropy"]),
-            dropout_callout=lambda hp: hp.Float("dropout", min_value=0.15, max_value=0.2, step=0.05),
-            units_callout=lambda hp: hp.Int("units", min_value=180, max_value=180, step=50),
+            dropout_callout=lambda hp: hp.Float("dropout", min_value=0.15, max_value=0.3, step=0.05),
+            units_callout=lambda hp: hp.Int("units", min_value=50, max_value=500, step=50),
             learning_rate_callout=lambda hp: hp.Float("learning_rate", min_value=1e-6, max_value=1e-2, step=1e-4)
         )
 
@@ -62,12 +62,12 @@ if gpus:
 
         oracle = BayesianOptimizationOracle(
             objective=objective,
-            max_trials=2,
+            max_trials=500
         )
 
-        def batch_size_callout(hp): return hp.Int("batch_size", min_value=8, max_value=16, step=4),
+        def batch_size_callout(hp): return hp.Int("batch_size", min_value=8, max_value=60, step=4),
     finally:
         wdb.finish()
-    classifier.tune(hypermodel, oracle, 130, objective, batch_size_callout)
+    classifier.tune(hypermodel, oracle, 500, objective, batch_size_callout)
 else:
     print("No GPUs available")
