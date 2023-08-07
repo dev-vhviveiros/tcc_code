@@ -2,8 +2,6 @@ import kerastuner as kt
 import wandb
 from wandb.keras import WandbCallback
 
-from dataset_representation import COVID_TAG, DATASET_TAG
-
 
 class CustomTuner(kt.Tuner):
     """
@@ -55,10 +53,12 @@ class CustomTuner(kt.Tuner):
                                 validation_data=validation_data,
                                 workers=6,
                                 use_multiprocessing=True,
-                                callbacks=[WandbCallback()])
+                                callbacks=[WandbCallback(save_model=True, monitor=objective, mode='max')])
 
-            # Get the validation objective of the last epoch model which is fully trained
-            objective_value = history.history[objective][-1]
+            # TODO: wandbcallback should have knowledge of previous trials to save models
+
+            # Get the validation objective of the best epoch model which is fully trained
+            objective_value = max(history.history[objective])
 
             # Send the objective data to the oracle for comparison of hyperparameters
             self.oracle.update_trial(trial.trial_id, {objective: objective_value})
