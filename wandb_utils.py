@@ -54,11 +54,12 @@ class WandbUtils:
         Returns:
             any: The result of the callback function.
         """
+        print(f"WDB RUNNING JOB: <{job_type}>!")
         # Call the callback function with the `run` object as an argument and store the result.
         result = callback(self._run)
 
         # Print a message indicating that the job is done.
-        print("JOB: <" + job_type + "> DONE!")
+        print(f"WDB JOB: <{job_type}> DONE!")
 
         # Return the result of the callback function.
         return result
@@ -233,9 +234,6 @@ class WandbUtils:
                 "covid_scatter_plot": cov_scatter_plot,
                 "non_covid_scatter_plot": non_cov_scatter_plot
             })
-
-            # Finish the current W&B run.
-            self.finish()
 
         # Call the `run_job` method with the callback function and the `WB_JOB_HISTOGRAM_CHART` job type.
         self.run_job(callback, WB_JOB_HISTOGRAM_CHART)

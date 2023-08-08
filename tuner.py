@@ -48,7 +48,7 @@ class CustomTuner(kt.Tuner):
             # Use WandbCallback() to log all the metric data such as loss, accuracy, etc. on the Weights & Biases dashboard for visualization
             history = model.fit(trainX,
                                 trainY,
-                                batch_size=batch_size[0],
+                                batch_size=batch_size,
                                 epochs=epochs,
                                 validation_data=validation_data,
                                 workers=6,

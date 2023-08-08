@@ -1,11 +1,10 @@
 from image import LungMaskGenerator, ImageProcessor, ImageSaver, ImageCharacteristics
 from utils import check_folder
-from wandb_utils import WandbUtils
 from dataset_representation import Characteristics, CovidMaskDataset, CovidProcessedDataset,  NormalMaskDataset, NormalProcessedDataset
 
 
 class Preprocessing:
-    def __init__(self, wandb: WandbUtils, img_target_size, img_input_size):
+    def __init__(self, img_target_size, img_input_size):
         """
         Initialize the Preprocessing object.
 
@@ -15,7 +14,6 @@ class Preprocessing:
         self.covid_mask_dataset = CovidMaskDataset()
         self.normal_masks = NormalMaskDataset()
         self.characteristics = Characteristics()
-        self.wandb = wandb
         self.img_target_size = img_target_size
         self.img_input_size = img_input_size
 
@@ -39,10 +37,6 @@ class Preprocessing:
                           target_size=self.img_target_size, input_size=self.img_input_size).generate()
         LungMaskGenerator(folder_in=normal_artifact, folder_out=self.normal_masks.path,
                           target_size=self.img_target_size, input_size=self.img_input_size).generate()
-
-        # Upload the artifacts
-        self.wandb.upload_dataset_artifact(CovidMaskDataset())
-        self.wandb.upload_dataset_artifact(NormalMaskDataset())
 
     def process_images(self, *artifacts):
         """
@@ -83,10 +77,6 @@ class Preprocessing:
         ImageSaver(cov_processed).save_to(cov_save_path)
         ImageSaver(normal_processed).save_to(normal_save_path)
 
-        # Upload the processed datasets to wandb
-        self.wandb.upload_dataset_artifact(cov_processed_artifact)
-        self.wandb.upload_dataset_artifact(normal_processed_artifact)
-
     def generate_characteristics(self, cov_processed_artifact, normal_processed_artifact):
         """
         Generate image characteristics for the processed COVID and normal chest X-ray images.
@@ -100,4 +90,3 @@ class Preprocessing:
         """
         ic = ImageCharacteristics(cov_processed_artifact, normal_processed_artifact)
         ic.save(self.characteristics.path)
-        self.wandb.upload_characteristics()
