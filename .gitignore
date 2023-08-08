@@ -125,6 +125,7 @@ wandb/
 
 test*
 dataset/
+dataset_old/
 *.h5
 .vscode/
 random_search/

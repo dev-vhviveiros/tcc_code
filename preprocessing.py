@@ -5,7 +5,7 @@ from dataset_representation import Characteristics, CovidMaskDataset, CovidProce
 
 
 class Preprocessing:
-    def __init__(self, wandb: WandbUtils):
+    def __init__(self, wandb: WandbUtils, img_target_size, img_input_size):
         """
         Initialize the Preprocessing object.
 
@@ -16,6 +16,8 @@ class Preprocessing:
         self.normal_masks = NormalMaskDataset()
         self.characteristics = Characteristics()
         self.wandb = wandb
+        self.img_target_size = img_target_size
+        self.img_input_size = img_input_size
 
     def generate_lungs_masks(self, covid_artifact, normal_artifact):
         """
@@ -33,8 +35,10 @@ class Preprocessing:
         check_folder(self.normal_masks.path)
 
         # Generate masks
-        LungMaskGenerator(folder_in=covid_artifact, folder_out=self.covid_mask_dataset.path).generate()
-        LungMaskGenerator(folder_in=normal_artifact, folder_out=self.normal_masks.path).generate()
+        LungMaskGenerator(folder_in=covid_artifact, folder_out=self.covid_mask_dataset.path,
+                          target_size=self.img_target_size, input_size=self.img_input_size).generate()
+        LungMaskGenerator(folder_in=normal_artifact, folder_out=self.normal_masks.path,
+                          target_size=self.img_target_size, input_size=self.img_input_size).generate()
 
         # Upload the artifacts
         self.wandb.upload_dataset_artifact(CovidMaskDataset())

@@ -16,7 +16,7 @@ from utils import abs_path
 
 
 class Image:
-    def __init__(self, file_path, divide=False, reshape=False):
+    def __init__(self, file_path, divide=False, reshape=False, target_size=(256, 256)):
         """
         Load an image file.
 
@@ -34,9 +34,9 @@ class Image:
         self.file_path = file_path
         self.divide = divide
         self.reshape = reshape
-        self.data = self.__load_file()
+        self.data = self.__load_file(target_size)
 
-    def __load_file(self, target_size=(512, 512)):
+    def __load_file(self, target_size):
         """
         Load image file, preprocess and return the data.
 
@@ -124,7 +124,7 @@ class Image:
         result_file = abs_path(save_folder, "%s_histogram%s" % (filename, '.png'))
         plt.savefig(result_file)
         plt.close()
-    
+
     def haralick(self):
         """
         Calculate and return the mean of Haralick texture features for 4 types of adjacency.
@@ -139,24 +139,27 @@ class Image:
 
         return ht_mean
 
+
 class ImageTuple:
     """This is a class that represents an image and its corresponding mask image.
     The mask image also has an associated image object, which allows for
     convenient access to the mask image's properties."""
-    def __init__(self, image:Image, mask:Image):
+
+    def __init__(self, image: Image, mask: Image):
         self.image = image
         self.mask = mask
 
     @staticmethod
-    def from_image(image:Image, masks_dir_path:str):
+    def from_image(image: Image, masks_dir_path: str):
         """This method creates an ImageTuple from an image and a masks directory.
         The masks directory is used to find the corresponding mask image for the input image."""
         img_filename = image.get_filename()
-        #TODO: add the `_mask` endfile to the project configs
+        # TODO: add the `_mask` endfile to the project configs
         mask_img_filename = "%s_mask%s" % (img_filename[0], img_filename[1])
         mask_img_path = "%s/%s" % (masks_dir_path, mask_img_filename)
         mask = Image(mask_img_path, False, False)
         return ImageTuple(image, mask)
+
 
 class ImageLoader:
     """
@@ -184,9 +187,9 @@ class ImageLoader:
             If only_data is True, returns the data of the image. Otherwise, returns the entire Image object.
 
         """
-        #TODO: make it load images in parallel
+        # TODO: make it load images in parallel
         image_files = glob(path + "/*g")
-        
+
         for image_file in image_files:
             if only_data:
                 yield Image(image_file, divide, reshape).data
@@ -317,11 +320,11 @@ class ImageProcessor:
         Apply mask to an image.
 
         Args:
-        - img (ndarray): 2D array of shape (512, 512)
-        - mask (ndarray): 2D array of shape (512, 512)
+        - img (ndarray): 2D array of shape (256, 256)
+        - mask (ndarray): 2D array of shape (256, 256)
 
         Returns:
-        - modified_img (ndarray): modified 2D array of shape (512, 512)
+        - modified_img (ndarray): modified 2D array of shape (256, 256)
         """
         modified_img_data = np.copy(img_data)
         for i in prange(img_data.shape[0]):
@@ -351,7 +354,7 @@ class ImageProcessor:
 
     def process(self):
         return list(map(lambda tuple: self.__process_image(tuple.image, tuple.mask), self.tuples))
-    
+
 
 class LungMaskGenerator:
     """
@@ -361,8 +364,8 @@ class LungMaskGenerator:
     https://www.kaggle.com/eduardomineo/u-net-lung-segmentation-montgomery-shenzhen/execution#4.-Results
     """
 
-    def __init__(self, input_size=(512, 512, 1),
-                 target_size=(512, 512),
+    def __init__(self, input_size=(256, 256, 1),
+                 target_size=(256, 256),
                  folder_in='',
                  folder_out=''):
         """
@@ -442,7 +445,7 @@ class LungMaskGenerator:
         files = glob(self.folder_in + "/*g")
 
         # Generate predictions for images in input folder
-        gen = self.__load_images(files) #TODO: check if this should be changed for the global loader
+        gen = self.__load_images(files)  # TODO: check if this should be changed for the global loader
         results = model.predict_generator(gen, len(files), verbose=1)
 
         # Save segmented images to output folder
@@ -451,7 +454,7 @@ class LungMaskGenerator:
 
 class ImageCharacteristics:
     def __init__(self, cov_images_artifact, normal_images_artifact):
-        #TODO: Fix docstrings
+        # TODO: Fix docstrings
         """
         Initializes an ImageCharacteristics object with a list of covered and non-covered images.
 
