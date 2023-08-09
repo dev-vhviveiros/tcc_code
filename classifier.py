@@ -126,7 +126,7 @@ class Classifier:
 
         return sensitivity
 
-    def tune(self, hypermodel, oracle, epochs: int, objective: str, batch_size_callout):
+    def tune(self, hypermodel, oracle, epochs: int, objective: str, batch_size_callout, wandb_utils):
         """
         Uses a custom tuner to search for the best hyperparameters for a given hypermodel.
 
@@ -151,8 +151,11 @@ class Classifier:
         )
 
         # Search for the best hyperparameters using the custom tuner
-        tuner.search(self.norm_train_characteristics, self.train_labels, epochs=epochs, objective=objective,
-                     validation_data=(self.norm_val_characteristics, self.val_labels))
+        tuner.search(self.norm_train_characteristics,
+                     self.train_labels,
+                     epochs=epochs, objective=objective,
+                     validation_data=(self.norm_val_characteristics, self.val_labels),
+                     wandb_utils=wandb_utils)
 
     def plot_confusion_matrix(self, title: str, cmap=None, normalize: bool = False, save_dir: str = None):
         """

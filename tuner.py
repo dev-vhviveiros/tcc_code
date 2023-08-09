@@ -3,6 +3,8 @@ import wandb
 from wandb.keras import WandbCallback
 from tensorflow.keras.callbacks import EarlyStopping
 
+from wandb_utils import WandbUtils
+
 
 class CustomTuner(kt.Tuner):
     """
@@ -21,7 +23,7 @@ class CustomTuner(kt.Tuner):
         self.batch_size_callout = batch_size_callout
         super().__init__(*args, **kwargs)
 
-    def run_trial(self, trial, trainX, trainY, epochs, objective, validation_data):
+    def run_trial(self, trial, trainX, trainY, epochs, objective, validation_data, wandb_utils: WandbUtils):
         """
         Runs a single trial with the given hyperparameters.
 
@@ -53,10 +55,12 @@ class CustomTuner(kt.Tuner):
         total_samples = num_train_samples + num_val_samples
         print(f"Trial {trial.trial_id}: Total samples: {total_samples}")
 
+        tag = wandb_utils.wdb_tag
+
         # Initiates new run for each trial on the dashboard of Weights & Biases
-        with wandb.init(project="tcc_code", config={**hp.values}, group="trial") as run:
+        with wandb.init(project="tcc_code", config={**hp.values}, group="trial", tags=[tag]) as run:
             # Use WandbCallback() to log all the metric data such as loss, accuracy, etc. on the Weights & Biases dashboard for visualization
-            early_stop = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+            early_stop = EarlyStopping(monitor='val_loss', patience=25, restore_best_weights=True, mode="min")
             history = model.fit(trainX,
                                 trainY,
                                 batch_size=batch_size,
@@ -65,8 +69,6 @@ class CustomTuner(kt.Tuner):
                                 workers=6,
                                 use_multiprocessing=True,
                                 callbacks=[early_stop, WandbCallback(save_model=True, monitor=objective, mode='max')])
-
-            # TODO: wandbcallback should have knowledge of previous trials to save models
 
             # Get the validation objective of the best epoch model which is fully trained
             objective_value = max(history.history[objective])

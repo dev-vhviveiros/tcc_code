@@ -15,7 +15,7 @@ class Main:
             raise RuntimeError("No GPUs available")
         tf.config.experimental.set_memory_growth(gpus[0], True)
         # Initialize the WandbUtils class and start a new run
-        self.wdb = WandbUtils("basic")
+        self.wdb = WandbUtils("basic_non_generated")
 
     def preprocessing(self, input_size=(256, 256, 1), target_size=(256, 256), skip_to_step=None) -> 'Main':
         # Initialize the Preprocessing class
@@ -103,12 +103,13 @@ class Main:
             activation_callout=lambda hp: hp.Choice(
                 "activation", values=['relu', 'elu', 'selu', 'tanh', 'softsign', 'softplus']),
             activation_output_callout=lambda hp: hp.Choice(
-                "activation_output", values=['sigmoid', 'softmax', 'tanh', 'softplus']),
+                "activation_output", values=['sigmoid', 'softmax']),
             loss_callout=lambda hp: hp.Choice(
                 "loss", values=['mean_squared_error', 'kl_divergence', 'poisson', 'binary_crossentropy']),
             dropout_callout=lambda hp: hp.Float("dropout", min_value=0.15, max_value=0.3, step=0.05),
             units_callout=lambda hp: hp.Int("units", min_value=50, max_value=500, step=50),
-            learning_rate_callout=lambda hp: hp.Float("learning_rate", min_value=1e-6, max_value=1e-2, step=1e-4)
+            learning_rate_callout=lambda hp: hp.Float("learning_rate", min_value=1e-6, max_value=1e-2, step=1e-4),
+            num_layers_callout=lambda hp: hp.Int("num_layers", min_value=3, max_value=20, step=1),
         )
 
         objective = 'val_accuracy'
@@ -119,7 +120,7 @@ class Main:
         )
 
         def batch_size_callout(hp): return hp.Int("batch_size", min_value=8, max_value=256, step=4)
-        classifier.tune(hypermodel, oracle, 1000, objective, batch_size_callout)
+        classifier.tune(hypermodel, oracle, 1000, objective, batch_size_callout, self.wdb)
         return self
 
     def finish_wdb(self): self.wdb.finish()
@@ -128,7 +129,7 @@ class Main:
 # RUN
 try:
     main = Main()
-    main.preprocessing(input_size=(256, 256, 1), target_size=(256, 256), skip_to_step=3)
+    # main.preprocessing(input_size=(256, 256, 1), target_size=(256, 256), skip_to_step=3)
     main.tuning(3616)
 finally:
     main.finish_wdb()

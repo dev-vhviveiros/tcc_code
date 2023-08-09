@@ -9,7 +9,7 @@ class CustomHyperModel(HyperModel):
     A custom hypermodel subclassed from `HyperModel` that defines the architecture of the neural network.
     """
 
-    def __init__(self, optimizer_callout, activation_callout, activation_output_callout, units_callout, dropout_callout, loss_callout, learning_rate_callout, metrics=["accuracy"]):
+    def __init__(self, optimizer_callout, activation_callout, activation_output_callout, units_callout, dropout_callout, loss_callout, learning_rate_callout, num_layers_callout, metrics=["accuracy"]):
         """
         Initializes a new instance of the CustomHyperModel class.
 
@@ -29,6 +29,7 @@ class CustomHyperModel(HyperModel):
         self.dropout_callout = dropout_callout
         self.loss_callout = loss_callout
         self.learning_rate_callout = learning_rate_callout
+        self.num_layers_callout = num_layers_callout
         self.metrics = metrics
 
     def build(self, hp):
@@ -49,6 +50,7 @@ class CustomHyperModel(HyperModel):
         loss_hp = self.loss_callout(hp)
         dropout_hp = self.dropout_callout(hp)
         units_hp = self.units_callout(hp)
+        num_layers_hp = self.num_layers_callout(hp)
 
         # Get the optimizer
         optimizer = self.get_optimizer(optimizer_hp, learning_rate_hp)
@@ -59,7 +61,7 @@ class CustomHyperModel(HyperModel):
         # Add the layers
         classifier.add(Dense(units=units_hp, activation=activation_hp, input_shape=(268,)))
         classifier.add(Dropout(rate=dropout_hp))
-        for _ in range(5):
+        for _ in range(num_layers_hp):
             classifier.add(Dense(units=units_hp, activation=activation_hp))
             classifier.add(Dropout(rate=dropout_hp))
 
