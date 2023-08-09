@@ -1,6 +1,7 @@
 import kerastuner as kt
 import wandb
 from wandb.keras import WandbCallback
+from tensorflow.keras.callbacks import EarlyStopping
 
 
 class CustomTuner(kt.Tuner):
@@ -43,9 +44,19 @@ class CustomTuner(kt.Tuner):
         # Get the batch size for the current trial hyperparameters
         batch_size = self.batch_size_callout(hp)
 
+        # Print the number of training and validation samples
+        num_train_samples = len(trainX)
+        num_val_samples = len(validation_data[0])
+        print(f"Trial {trial.trial_id}: Training on {num_train_samples} samples, validating on {num_val_samples} samples")
+
+        # Print the sum of training and validation samples
+        total_samples = num_train_samples + num_val_samples
+        print(f"Trial {trial.trial_id}: Total samples: {total_samples}")
+
         # Initiates new run for each trial on the dashboard of Weights & Biases
         with wandb.init(project="tcc_code", config={**hp.values}, group="trial") as run:
             # Use WandbCallback() to log all the metric data such as loss, accuracy, etc. on the Weights & Biases dashboard for visualization
+            early_stop = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
             history = model.fit(trainX,
                                 trainY,
                                 batch_size=batch_size,
@@ -53,7 +64,7 @@ class CustomTuner(kt.Tuner):
                                 validation_data=validation_data,
                                 workers=6,
                                 use_multiprocessing=True,
-                                callbacks=[WandbCallback(save_model=True, monitor=objective, mode='max')])
+                                callbacks=[early_stop, WandbCallback(save_model=True, monitor=objective, mode='max')])
 
             # TODO: wandbcallback should have knowledge of previous trials to save models
 

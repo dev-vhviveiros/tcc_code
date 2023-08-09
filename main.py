@@ -17,19 +17,26 @@ class Main:
         # Initialize the WandbUtils class and start a new run
         self.wdb = WandbUtils("basic")
 
-    def preprocessing(self, input_size=(256, 256, 1), target_size=(256, 256), skip_to_step=0) -> 'Main':
+    def preprocessing(self, input_size=(256, 256, 1), target_size=(256, 256), skip_to_step=None) -> 'Main':
         # Initialize the Preprocessing class
         pp = Preprocessing(img_input_size=input_size, img_target_size=target_size)
+        covid_artifact = None
+        normal_artifact = None
 
         def upload_base_dataset():
             # Upload the dataset artifacts
             self.wdb.upload_dataset_artifact(CovidDataset())
             self.wdb.upload_dataset_artifact(NormalDataset())
 
-        def generate_mask_dataset():
+        def load_dataset_artifacts():
             # Load the dataset artifacts
             covid_artifact = self.wdb.load_dataset_artifact(CovidDataset())
             normal_artifact = self.wdb.load_dataset_artifact(NormalDataset())
+            return (covid_artifact, normal_artifact)
+
+        def generate_mask_dataset():
+            # Load the dataset artifacts
+            covid_artifact, normal_artifact = load_dataset_artifacts()
 
             # Generate lung masks for all images
             pp.generate_lungs_masks(covid_artifact, normal_artifact)
@@ -39,6 +46,11 @@ class Main:
             self.wdb.upload_dataset_artifact(NormalMaskDataset())
 
         def processing():
+            # Load the dataset artifacts if they are not already loaded
+            nonlocal covid_artifact, normal_artifact
+            if covid_artifact is None or normal_artifact is None:
+                covid_artifact, normal_artifact = load_dataset_artifacts()
+
             # Load the masks artifacts
             covid_mask_artifact = self.wdb.load_dataset_artifact(CovidMaskDataset())
             normal_mask_artifact = self.wdb.load_dataset_artifact(NormalMaskDataset())
@@ -47,15 +59,15 @@ class Main:
             pp.process_images(covid_artifact, covid_mask_artifact, normal_artifact, normal_mask_artifact)
 
             # Upload the processed datasets to wandb
-            self.wandb.upload_dataset_artifact(CovidProcessedDataset())
-            self.wandb.upload_dataset_artifact(NormalProcessedDataset())
+            self.wdb.upload_dataset_artifact(CovidProcessedDataset())
+            self.wdb.upload_dataset_artifact(NormalProcessedDataset())
 
         def generate_hist_and_characteristics():
             # Load the processed datasets as artifacts
             covid_processed_artifact = self.wdb.load_dataset_artifact(CovidProcessedDataset())
             normal_processed_artifact = self.wdb.load_dataset_artifact(NormalProcessedDataset())
 
-            self.wdb.log_histogram_chart_comparison()
+            self.wdb.log_histogram_chart_comparison(target_size)
 
             # Generate characteristics file
             pp.generate_characteristics(covid_processed_artifact, normal_processed_artifact)
@@ -64,18 +76,19 @@ class Main:
             self.wdb.upload_characteristics()
 
         steps = [upload_base_dataset, generate_mask_dataset, processing, generate_hist_and_characteristics]
-        runnable_steps = steps[skip_to_step-1:]
 
-        print(f"Given step:{skip_to_step}, running {runnable_steps}")
+        if skip_to_step is not None:
+            steps = steps[skip_to_step-1:]
 
-        for step in runnable_steps:
+        print(f"Given step:{skip_to_step}, running {steps}")
+
+        for step in steps:
             step()
         return self
 
-    def tuning(self) -> 'Main':
-        # TODO
+    def tuning(self, num_samples) -> 'Main':
         characteristics_artifact = self.wdb.load_characteristics()
-        classifier = Classifier(characteristics_artifact=characteristics_artifact)
+        classifier = Classifier(characteristics_artifact=characteristics_artifact, num_samples=num_samples)
 
         metrics = ['accuracy',
                    tf.keras.metrics.Precision(),
@@ -86,10 +99,13 @@ class Main:
 
         hypermodel = CustomHyperModel(
             metrics=metrics,
-            optimizer_callout=lambda hp: hp.Choice("optimizer", values=["sgd"]),
-            activation_callout=lambda hp: hp.Choice("activation", values=["relu"]),
-            activation_output_callout=lambda hp: hp.Choice("activation_output", values=["sigmoid"]),
-            loss_callout=lambda hp: hp.Choice("loss", values=["binary_crossentropy"]),
+            optimizer_callout=lambda hp: hp.Choice("optimizer", values=["sgd", "adam", "adadelta"]),
+            activation_callout=lambda hp: hp.Choice(
+                "activation", values=['relu', 'elu', 'selu', 'tanh', 'softsign', 'softplus']),
+            activation_output_callout=lambda hp: hp.Choice(
+                "activation_output", values=['sigmoid', 'softmax', 'tanh', 'softplus']),
+            loss_callout=lambda hp: hp.Choice(
+                "loss", values=['mean_squared_error', 'kl_divergence', 'poisson', 'binary_crossentropy']),
             dropout_callout=lambda hp: hp.Float("dropout", min_value=0.15, max_value=0.3, step=0.05),
             units_callout=lambda hp: hp.Int("units", min_value=50, max_value=500, step=50),
             learning_rate_callout=lambda hp: hp.Float("learning_rate", min_value=1e-6, max_value=1e-2, step=1e-4)
@@ -102,8 +118,8 @@ class Main:
             max_trials=500
         )
 
-        def batch_size_callout(hp): return hp.Int("batch_size", min_value=8, max_value=60, step=4)
-        classifier.tune(hypermodel, oracle, 130, objective, batch_size_callout)
+        def batch_size_callout(hp): return hp.Int("batch_size", min_value=8, max_value=256, step=4)
+        classifier.tune(hypermodel, oracle, 1000, objective, batch_size_callout)
         return self
 
     def finish_wdb(self): self.wdb.finish()
@@ -112,7 +128,7 @@ class Main:
 # RUN
 try:
     main = Main()
-    # main.preprocessing(input_size=(256, 256, 1), target_size=(256, 256), skip_to_step=4)
-    main.tuning()
+    main.preprocessing(input_size=(256, 256, 1), target_size=(256, 256), skip_to_step=3)
+    main.tuning(3616)
 finally:
     main.finish_wdb()

@@ -179,7 +179,7 @@ class WandbUtils:
         # Call the `run_job` method with the callback function and the `WB_JOB_LOG_TABLE` job type.
         self.run_job(callback, WB_JOB_LOG_TABLE)
 
-    def log_histogram_chart_comparison(self):
+    def log_histogram_chart_comparison(self, samples_target_size):
         """
         Log a comparison of histogram charts for covid and non-covid images.
 
@@ -192,8 +192,8 @@ class WandbUtils:
         # Define a callback function that takes in a `run` parameter.
         def callback(run):
             # Load the image data for the covid and non-covid images.
-            cov_processed_gen = ImageLoader().load_from(CovidProcessedDataset().path)
-            non_cov_processed_gen = ImageLoader().load_from(NormalProcessedDataset().path)
+            cov_processed_gen = ImageLoader().load_from(CovidProcessedDataset().path, samples_target_size)
+            non_cov_processed_gen = ImageLoader().load_from(NormalProcessedDataset().path, samples_target_size)
 
             # Define a helper function to generate histogram data for an image generator.
             def generate_histogram_data(image_gen):
@@ -258,6 +258,9 @@ class WandbUtils:
 
             # Log the artifact to W&B using the provided aliases.
             run.log_artifact(artifact, aliases=dataset_artifact.aliases + [self.wdb_alias])
+
+            # Wait for the artifact logging
+            artifact.wait()
 
         # Call the `run_job` method with the callback function and the `WB_JOB_UPLOAD_DATASET` job type.
         self.run_job(callback, WB_JOB_UPLOAD_DATASET)

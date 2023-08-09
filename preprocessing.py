@@ -54,8 +54,8 @@ class Preprocessing:
         normal_mask_artifact = artifacts[3]
 
         # Initialize the image processors with the dataset artifacts
-        cov_processor = ImageProcessor(covid_artifact, covid_mask_artifact)
-        normal_processor = ImageProcessor(normal_artifact, normal_mask_artifact)
+        cov_processor = ImageProcessor(covid_artifact, covid_mask_artifact, target_size=self.img_target_size)
+        normal_processor = ImageProcessor(normal_artifact, normal_mask_artifact, target_size=self.img_target_size)
 
         # Process the images
         print("Processing images\n")
@@ -88,5 +88,5 @@ class Preprocessing:
         Returns:
             None
         """
-        ic = ImageCharacteristics(cov_processed_artifact, normal_processed_artifact)
+        ic = ImageCharacteristics(cov_processed_artifact, normal_processed_artifact, self.img_target_size)
         ic.save(self.characteristics.path)

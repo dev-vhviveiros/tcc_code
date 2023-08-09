@@ -18,7 +18,7 @@ class Classifier:
     import_model = if you saved a model and want to import it
     """
 
-    def __init__(self, characteristics_artifact: str = None, model_artifact: str = None):
+    def __init__(self, num_samples, characteristics_artifact: str = None, model_artifact: str = None):
         """
         Initializes the Classifier object.
 
@@ -26,12 +26,15 @@ class Classifier:
             characteristics_artifact (str, optional): The characteristics artifact. Defaults to None.
             model_artifact (str, optional): The model artifact. Defaults to None.
         """
+        # Define the number of samples that will be used
+        self.num_samples = num_samples
+
         # Load the WandB project name from the configuration file
         self.wdb_project = load_config("wb_project_name")
 
         # Load the characteristics artifact if provided
         if characteristics_artifact is not None:
-            self.__load_characteristics(characteristics_artifact)
+            self.__load_characteristics(characteristics_artifact, num_samples)
 
         # Load the model artifact if provided
         if model_artifact is not None:
@@ -40,14 +43,16 @@ class Classifier:
         # Print a message indicating the project and artifacts being used
         print(f"Initializing classifier project: {self.wdb_project} with:\n"
               f"Characteristics: {characteristics_artifact}\n"
-              f"Model: {model_artifact}")
+              f"Model: {model_artifact}\n"
+              f"Number of samples per label: {num_samples}")
 
-    def __load_characteristics(self, characteristics_artifact, test_size=0.2):
+    def __load_characteristics(self, characteristics_artifact, num_samples, test_size=0.2):
         """
         Loads the image characteristics and labels from a CSV file, splits the data into training and testing sets, and normalizes the image characteristics using the StandardScaler function.
 
         Args:
             characteristics_artifact (str): The path to the CSV file containing the image characteristics and labels.
+            num_samples (int): The number of samples to load for each label.
             test_size (float, optional): The proportion of the data to use for testing. Defaults to 0.2.
         Returns:
             None
@@ -59,6 +64,16 @@ class Classifier:
         # Extract the input data (image characteristics) and output data (labels)
         image_characteristics = characteristics_df.iloc[:, 0:268].values
         labels = characteristics_df.iloc[:, 268].values
+
+        # Select the first num_samples samples for each label
+        selected_indices = []
+        for label in np.unique(labels):
+            label_indices = np.where(labels == label)[0]
+            selected_indices.extend(label_indices[:num_samples])
+
+        # Use the selected indices to extract the input data and output data
+        image_characteristics = image_characteristics[selected_indices]
+        labels = labels[selected_indices]
 
         # Split the data into training and testing sets
         training_image_characteristics, testing_image_characteristics, self.train_labels, self.val_labels = train_test_split(

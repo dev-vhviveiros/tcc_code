@@ -9,7 +9,6 @@ import mahotas as mt
 from typing import List
 from numba import njit, prange
 
-from sklearn.model_selection import train_test_split
 from models import unet_model
 
 from utils import abs_path
@@ -150,14 +149,14 @@ class ImageTuple:
         self.mask = mask
 
     @staticmethod
-    def from_image(image: Image, masks_dir_path: str):
+    def from_image(image: Image, masks_dir_path: str, target_size):
         """This method creates an ImageTuple from an image and a masks directory.
         The masks directory is used to find the corresponding mask image for the input image."""
         img_filename = image.get_filename()
         # TODO: add the `_mask` endfile to the project configs
         mask_img_filename = "%s_mask%s" % (img_filename[0], img_filename[1])
         mask_img_path = "%s/%s" % (masks_dir_path, mask_img_filename)
-        mask = Image(mask_img_path, False, False)
+        mask = Image(mask_img_path, False, False, target_size=target_size)
         return ImageTuple(image, mask)
 
 
@@ -166,7 +165,7 @@ class ImageLoader:
     A class for generating and preprocessing image data for COVID-19 detection.
     """
 
-    def load_from(self, path: str, divide: bool = False, reshape: bool = False, only_data: bool = False):
+    def load_from(self, path: str, target_size, divide: bool = False, reshape: bool = False, only_data: bool = False):
         """
         Generates an Image object from a given path.
 
@@ -192,93 +191,9 @@ class ImageLoader:
 
         for image_file in image_files:
             if only_data:
-                yield Image(image_file, divide, reshape).data
+                yield Image(image_file, divide, reshape, target_size=target_size).data
             else:
-                yield Image(image_file, divide, reshape)
-
-    def generate_preprocessing_data(self, cov_path: str, cov_masks_path: str, normal_path: str, normal_masks_path: str) -> List:
-        """
-        Generates preprocessing data from four input paths.
-
-        Parameters:
-        ----------
-        cov_path : str
-            Required. The path of the COVID-19 image data.
-        cov_masks_path : str
-            Required. The path of the COVID-19 mask data.
-        normal_path : str
-            Required. The path of the non-COVID-19 image data.
-        normal_masks_path : str
-            Required. The path of the non-COVID-19 mask data.
-
-        Returns:
-        -------
-        List
-            A list containing the images and masks for COVID-19 and non-COVID-19 cases.
-
-        """
-        with ThreadPoolExecutor() as executor:
-            cov_images = executor.submit(self.load_from, cov_path)
-            cov_masks = executor.submit(self.load_from, cov_masks_path)
-            normal_images = executor.submit(self.load_from, normal_path)
-            normal_masks = executor.submit(self.load_from, normal_masks_path)
-
-            return [cov_images.result(), cov_masks.result(), normal_images.result(), normal_masks.result()]
-
-    def generate_classificator_data(self, cov_path, normal_path, divide=True, reshape=False):
-        """
-        Generate classification data from two paths, one for COVID-19 positive images and one for COVID-19 negative images. 
-
-        Args:
-            cov_path (str): Path to the folder containing COVID-19 positive images.
-            normal_path (str): Path to the folder containing COVID-19 negative images.
-            divide (bool, optional): Whether to divide the image into its RGB channels. Defaults to True.
-            reshape (bool, optional): Whether to reshape the image into a specified shape. Defaults to False.
-
-        Returns:
-            tuple: A tuple containing the training and testing entries and results.
-
-        The function uses ThreadPoolExecutor to generate the images from each path asynchronously. The positive and negative images are concatenated together and repeated 3 times. A results array is created with the length of the sum of both image sets, with 1s in the first cov_len entries. Finally, it returns a train_test_split of the entries and results with a test size of 0.2 and random state 0.
-        """
-        with ThreadPoolExecutor() as executor:
-            cov_images = executor.map(lambda x: Image(x, divide, reshape).data, glob(cov_path + "/*g"))
-            normal_images = executor.map(lambda x: Image(x, divide, reshape).data, glob(normal_path + "/*g"))
-
-        entries = np.concatenate((list(cov_images), list(normal_images)))
-        entries = np.repeat(entries[..., np.newaxis], 3, -1)
-
-        cov_len = len(list(cov_images))
-        normal_len = len(list(normal_images))
-        results_len = cov_len + normal_len
-        results = np.zeros((results_len))
-
-        results[0:cov_len] = 1
-
-        # Split into train and test
-        return train_test_split(
-            entries, results, test_size=0.2, random_state=0)
-
-    def generate_processed_data(self, cov_processed_path, normal_processed_path, divide=True, reshape=False):
-        """Generate processed data from two paths.
-
-        Args:
-            cov_processed_path (str): The path for processed COVID-19 images.
-            normal_processed_path (str): The path for processed non-COVID-19 images.
-            divide (bool, optional): Whether to divide the image into its RGB channels. Defaults to True.
-            reshape (bool, optional): Whether to reshape the image into a specified shape. Defaults to False.
-
-        Returns:
-            list: A list containing the cov_images and normal_images.
-
-        This method generates processed data from two paths, `cov_processed_path` and `normal_processed_path`. 
-        It uses `ThreadPoolExecutor` to submit the `generate_from` function with each path, passing the `divide` 
-        and `reshape` parameters. The method returns a list containing the `cov_images` and `normal_images`.
-        """
-        with ThreadPoolExecutor() as executor:
-            cov_images = executor.submit(self.load_from, cov_processed_path, divide, reshape)
-            normal_images = executor.submit(self.load_from, normal_processed_path, divide, reshape)
-
-            return [cov_images.result(), normal_images.result()]
+                yield Image(image_file, divide, reshape, target_size=target_size)
 
 
 class ImageSaver:
@@ -303,14 +218,15 @@ class ImageSaver:
 
 
 class ImageProcessor:
-    def __init__(self, base_path: str, masks_path: str, divide: bool = False, reshape: bool = False, only_data: bool = False):
+    def __init__(self, base_path: str, masks_path: str, target_size, divide: bool = False, reshape: bool = False, only_data: bool = False):
         self.base_path = base_path
         self.masks_path = masks_path
 
         print("Loading images...")
         # Load images:
-        image_loader = ImageLoader().load_from(self.base_path, divide, reshape, only_data)
-        self.tuples = list(map(lambda img: ImageTuple.from_image(img, self.masks_path), image_loader))
+        image_loader = ImageLoader().load_from(self.base_path, target_size, divide, reshape, only_data)
+        self.tuples = list(map(lambda img: ImageTuple.from_image(
+            img, self.masks_path, target_size=target_size), image_loader))
         print("Images loaded.")
 
     @staticmethod
@@ -453,7 +369,7 @@ class LungMaskGenerator:
 
 
 class ImageCharacteristics:
-    def __init__(self, cov_images_artifact, normal_images_artifact):
+    def __init__(self, cov_images_artifact, normal_images_artifact, target_size):
         # TODO: Fix docstrings
         """
         Initializes an ImageCharacteristics object with a list of covered and non-covered images.
@@ -463,8 +379,8 @@ class ImageCharacteristics:
         - normal_images (list): A list of Image objects representing the non-covered images.
         """
         loader = ImageLoader()
-        cov_images = list(loader.load_from(cov_images_artifact, False, False, False))
-        normal_images = list(loader.load_from(normal_images_artifact, False, False, False))
+        cov_images = list(loader.load_from(cov_images_artifact, target_size, False, False, False))
+        normal_images = list(loader.load_from(normal_images_artifact, target_size, False, False, False))
 
         self.cov_images = cov_images
         self.normal_images = normal_images
@@ -492,6 +408,7 @@ class ImageCharacteristics:
 
 
 class ImageDataHistogram:
+
     @staticmethod
     def __hist_mean(images):
         """
@@ -505,14 +422,14 @@ class ImageDataHistogram:
         return hist_mean
 
     @staticmethod
-    def hist_mean(path):
+    def hist_mean(path, img_target_size):
         """
         This function takes in a path and returns the mean of the histogram of the image at that path.
         It generates an image using the ImageGenerator class and calls ImageDataHistogram's __hist_mean() method to calculate
         the mean of the histogram.
         """
         return ImageDataHistogram.__hist_mean(ImageLoader().load_from(
-            abs_path(path)))
+            abs_path(path), target_size=img_target_size))
 
     @staticmethod
     def __hist_median(images):
@@ -527,11 +444,11 @@ class ImageDataHistogram:
         return hist_median
 
     @staticmethod
-    def hist_median(path):
+    def hist_median(path, img_target_size):
         """
         This function takes in a path to an image and returns the median of its histogram.
         It generates an image using the ImageGenerator class and calls the __hist_median() method of the ImageDataHistogram class
         to get the median of its histogram.
         """
         return ImageDataHistogram.__hist_median(ImageLoader().load_from(
-            abs_path(path)))
+            abs_path(path), target_size=img_target_size))
