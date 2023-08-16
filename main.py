@@ -8,16 +8,16 @@ from kerastuner.oracles import BayesianOptimizationOracle
 
 
 class Main:
-    def __init__(self) -> None:
+    def __init__(self, tag) -> None:
         # Check the availability of gpu
         gpus = tf.config.list_physical_devices('GPU')
         if not gpus:
             raise RuntimeError("No GPUs available")
         tf.config.experimental.set_memory_growth(gpus[0], True)
         # Initialize the WandbUtils class and start a new run
-        self.wdb = WandbUtils("basic_non_generated")
+        self.wdb = WandbUtils(tag)
 
-    def preprocessing(self, input_size=(256, 256, 1), target_size=(256, 256), skip_to_step=None) -> 'Main':
+    def preprocessing(self, input_size, target_size, skip_to_step=None):
         # Initialize the Preprocessing class
         pp = Preprocessing(img_input_size=input_size, img_target_size=target_size)
         covid_artifact = None
@@ -86,7 +86,7 @@ class Main:
             step()
         return self
 
-    def tuning(self, num_samples) -> 'Main':
+    def tuning(self, num_samples):
         characteristics_artifact = self.wdb.load_characteristics()
         classifier = Classifier(characteristics_artifact=characteristics_artifact, num_samples=num_samples)
 
@@ -101,12 +101,12 @@ class Main:
             metrics=metrics,
             optimizer_callout=lambda hp: hp.Choice("optimizer", values=["sgd", "adam", "adadelta"]),
             activation_callout=lambda hp: hp.Choice(
-                "activation", values=['relu', 'elu', 'selu', 'tanh', 'softsign', 'softplus']),
+                "activation", values=['relu', 'tahn', 'softsign', 'softplus', 'selu', 'elu']),
             activation_output_callout=lambda hp: hp.Choice(
-                "activation_output", values=['sigmoid', 'softmax']),
+                "activation_output", values=['sigmoid']),
             loss_callout=lambda hp: hp.Choice(
                 "loss", values=['mean_squared_error', 'kl_divergence', 'poisson', 'binary_crossentropy']),
-            dropout_callout=lambda hp: hp.Float("dropout", min_value=0.15, max_value=0.3, step=0.05),
+            dropout_callout=lambda hp: hp.Float("dropout", min_value=0.1, max_value=0.3, step=0.05),
             units_callout=lambda hp: hp.Int("units", min_value=50, max_value=500, step=50),
             learning_rate_callout=lambda hp: hp.Float("learning_rate", min_value=1e-6, max_value=1e-2, step=1e-4),
             num_layers_callout=lambda hp: hp.Int("num_layers", min_value=3, max_value=20, step=1),
@@ -120,16 +120,16 @@ class Main:
         )
 
         def batch_size_callout(hp): return hp.Int("batch_size", min_value=8, max_value=256, step=4)
-        classifier.tune(hypermodel, oracle, 1000, objective, batch_size_callout, self.wdb)
+        classifier.tune(hypermodel, oracle, 3000, objective, batch_size_callout, self.wdb)
         return self
 
     def finish_wdb(self): self.wdb.finish()
 
 
 # RUN
+main = Main("baffa_dataset_256")
 try:
-    main = Main()
-    # main.preprocessing(input_size=(256, 256, 1), target_size=(256, 256), skip_to_step=3)
-    main.tuning(3616)
+    main.preprocessing(input_size=(256, 256, 1), target_size=(256, 256), skip_to_step=4)
+    main.tuning(1490)
 finally:
     main.finish_wdb()

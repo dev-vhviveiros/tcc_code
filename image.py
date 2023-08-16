@@ -1,17 +1,20 @@
 import pandas as pd
-from concurrent.futures import ThreadPoolExecutor
 from glob import glob
 import cv2
 import numpy as np
 import os
 import matplotlib.pyplot as plt
 import mahotas as mt
-from typing import List
 from numba import njit, prange
 
 from models import unet_model
 
 from utils import abs_path
+from radiomics import featureextractor
+import SimpleITK as sitk
+import multiprocessing as mp
+import logging
+import tqdm
 
 
 class Image:
@@ -137,6 +140,152 @@ class Image:
         ht_mean = np.mean(textures, axis=0)
 
         return ht_mean
+
+    def radiomic(self):
+        # Define the parameters for feature extraction
+        params = {
+            'binWidth': 25,
+            'resampledPixelSpacing': None,
+            'interpolator': 'sitkBSpline',
+            'enableCExtensions': True,
+            'featureClass': 'All',
+            'force2D': True,
+            'minimumROIDimensions': 2,
+            'normalize': True,
+            'normalizeScale': 1,
+            'removeOutliers': None,
+            'sigma': [1, 2, 3],
+            'additionalInfo': True,
+            'verbose': True,
+            'label': 1,
+            'padDistance': 5,
+            'distances': [1],
+            'force2Ddimension': 0,
+            'enableRadiomicsImageTypes': None,
+            'enableWavelet': False,
+            'resegmentRange': None,
+            'resegmentStep': None,
+            'resegmentThreshold': None,
+            'interpolator': 'sitkBSpline',
+            'preCrop': False,
+            'preCropPadding': 10,
+            'preCropNormalize': False,
+            'binCount': 64,
+            'normalizeBins': False,
+            'squareKernel': False,
+            'kernelRadius': 2,
+            'kernelType': 'square',
+            'weightingNorm': None,
+            'weightingParam': None,
+            'additionalFeatures': [
+                'firstorder',
+                'glcm',
+                'glrlm',
+                'glszm',
+                'ngtdm',
+                'gldm'
+            ],
+            'firstorder': [
+                'Mean',
+                'Variance',
+                'Skewness',
+                'Kurtosis',
+                'Minimum',
+                'Maximum',
+                'Median',
+                'Range',
+                'InterquartileRange'
+            ],
+            'glcm': [
+                'Autocorrelation',
+                'JointAverage',
+                'ClusterProminence',
+                'ClusterShade',
+                'ClusterTendency',
+                'Contrast',
+                'Correlation',
+                'DifferenceAverage',
+                'DifferenceEntropy',
+                'DifferenceVariance',
+                'Dissimilarity',
+                'Energy',
+                'Entropy',
+                'Homogeneity1',
+                'Homogeneity2',
+                'IMC1',
+                'IMC2',
+                'IDMN',
+                'IDN',
+                'InverseVariance',
+                'MaximumProbability',
+                'SumAverage',
+                'SumEntropy',
+                'SumSquares'
+            ],
+            'glrlm': [
+                'ShortRunEmphasis',
+                'LongRunEmphasis',
+                'GreyLevelNonUniformity',
+                'RunLengthNonUniformity',
+                'RunPercentage',
+                'LowGreyLevelRunEmphasis',
+                'HighGreyLevelRunEmphasis',
+                'ShortRunLowGreyLevelEmphasis',
+                'ShortRunHighGreyLevelEmphasis',
+                'LongRunLowGreyLevelEmphasis',
+                'LongRunHighGreyLevelEmphasis'
+            ],
+            'glszm': [
+                'SmallAreaEmphasis',
+                'LargeAreaEmphasis',
+                'GreyLevelNonUniformity',
+                'ZonePercentage',
+                'GreyLevelVariance',
+                'ZoneVariance',
+                'ZoneEntropy',
+                'LowGreyLevelZoneEmphasis',
+                'HighGreyLevelZoneEmphasis',
+                'SmallAreaLowGreyLevelEmphasis',
+                'SmallAreaHighGreyLevelEmphasis',
+                'LargeAreaLowGreyLevelEmphasis',
+                'LargeAreaHighGreyLevelEmphasis'
+            ],
+            'ngtdm': [
+                'Coarseness',
+                'Contrast',
+                'Busyness',
+                'Complexity',
+                'Strength'
+            ],
+            'gldm': [
+                'LargeDependenceEmphasis',
+                'LargeDependenceHighGreyLevelEmphasis',
+                'LargeDependenceLowGreyLevelEmphasis',
+                'LowDependenceEmphasis',
+                'LowDependenceHighGreyLevelEmphasis',
+                'LowDependenceLowGreyLevelEmphasis',
+                'DependenceEntropy',
+                'GreyLevelNonUniformity',
+                'GreyLevelNonUniformityNormalized',
+                'DependenceCountEntropy',
+                'DependenceCountNonUniformity',
+                'DependenceCountNonUniformityNormalized',
+                'DependenceVariance'
+            ]
+        }
+
+        mask = np.ones((256, 256))
+
+        # Convert numpy array to SimpleITK image
+        sitk_image = sitk.GetImageFromArray(np.expand_dims(self.data, axis=0))
+        sitk_mask = sitk.GetImageFromArray(np.expand_dims(mask, axis=0))
+
+        # Create the feature extractor
+        extractor = featureextractor.RadiomicsFeatureExtractor()
+
+        # Run the feature extraction
+        result = extractor.execute(imageFilepath=sitk_image, maskFilepath=sitk_mask)
+        return list(result.values())[36:]
 
 
 class ImageTuple:
@@ -372,11 +521,11 @@ class ImageCharacteristics:
     def __init__(self, cov_images_artifact, normal_images_artifact, target_size):
         # TODO: Fix docstrings
         """
-        Initializes an ImageCharacteristics object with a list of covered and non-covered images.
+        Initializes an ImageCharacteristics object with a list of cov and non-cov images.
 
         Args:
-        - cov_images (list): A list of Image objects representing the covered images.
-        - normal_images (list): A list of Image objects representing the non-covered images.
+        - cov_images (list): A list of Image objects representing the cov images.
+        - normal_images (list): A list of Image objects representing the non-cov images.
         """
         loader = ImageLoader()
         cov_images = list(loader.load_from(cov_images_artifact, target_size, False, False, False))
@@ -385,6 +534,9 @@ class ImageCharacteristics:
         self.cov_images = cov_images
         self.normal_images = normal_images
 
+    def process_image(self, img, label):
+        return np.hstack((img.hist(), img.radiomic(), [label]))
+
     def save(self, file_path):
         """
         Computes the histogram and haralick features for each image and saves them to a csv file.
@@ -392,19 +544,42 @@ class ImageCharacteristics:
         Args:
         - file_path (str): The path to the file where the data will be saved.
         """
-        # Compute the histogram and haralick features for each non-covered image
-        normal_data = [np.hstack((img.hist(), img.haralick(), [0]))
-                       for img in self.normal_images]
+        # set level for all classes
+        logger = logging.getLogger("radiomics")
+        logger.setLevel(logging.ERROR)
+        # ... or set level for specific class
+        logger = logging.getLogger("radiomics.glcm")
+        logger.setLevel(logging.ERROR)
+        # Define the number of worker processes to use
+        num_workers = 24
 
-        # Compute the histogram and haralick features for each covered image
-        cov_data = [np.hstack((img.hist(), img.haralick(), [1]))
-                    for img in self.cov_images]
+        # Split the images into chunks for parallel processing
+        normal_chunks = [self.normal_images[i:i+num_workers] for i in range(0, len(self.normal_images), num_workers)]
+        cov_chunks = [self.cov_images[i:i+num_workers] for i in range(0, len(self.cov_images), num_workers)]
 
-        # Combine the data for covered and non-covered images
-        data = normal_data + cov_data
+        # Create a pool of worker processes
+        pool = mp.Pool(num_workers)
 
-        # Convert the data to a pandas DataFrame and save it to a csv file
-        pd.DataFrame(data).to_csv(file_path, index=False)
+        try:
+            # Process the normal images in parallel
+            normal_results = []
+            for chunk in tqdm.tqdm(normal_chunks, desc="Processing normal images"):
+                normal_results += pool.starmap(self.process_image, [(img, 0) for img in chunk])
+
+            # Process the cov images in parallel
+            cov_results = []
+            for chunk in tqdm.tqdm(cov_chunks, desc="Processing cov images"):
+                cov_results += pool.starmap(self.process_image, [(img, 1) for img in chunk])
+
+            # Combine the results for cov and non-cov images
+            data = [item for sublist in normal_results + cov_results for item in sublist]
+
+            # Convert the data to a pandas DataFrame and save it to a csv file
+            pd.DataFrame(data).to_csv(file_path, index=False)
+        finally:
+            # Close the worker processes
+            pool.close()
+            pool.join()
 
 
 class ImageDataHistogram:

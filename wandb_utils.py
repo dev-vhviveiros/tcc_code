@@ -341,6 +341,9 @@ class WandbUtils:
         # Log the model artifact to W&B using the provided aliases.
         run.log_artifact(model_artifact, aliases=[self.wdb_tag])
 
+        # Wait for the artifact logging
+        model_artifact.wait()
+
         # Finish the current W&B run.
         self.finish()
 
@@ -383,6 +386,9 @@ class WandbUtils:
 
             # Log the artifact to W&B using the provided aliases.
             run.log_artifact(artifact, aliases=[CHARACTERISTICS_TAG, self.wdb_tag])
+
+            # Wait for the artifact logging
+            artifact.wait()
 
         # Call the `run_job` method with the callback function and the `WB_JOB_UPLOAD_DATASET` job type.
         self.run_job(callback, WB_JOB_UPLOAD_DATASET)

@@ -60,7 +60,7 @@ class CustomTuner(kt.Tuner):
         # Initiates new run for each trial on the dashboard of Weights & Biases
         with wandb.init(project="tcc_code", config={**hp.values}, group="trial", tags=[tag]) as run:
             # Use WandbCallback() to log all the metric data such as loss, accuracy, etc. on the Weights & Biases dashboard for visualization
-            early_stop = EarlyStopping(monitor='val_loss', patience=25, restore_best_weights=True, mode="min")
+            early_stop = EarlyStopping(monitor='val_accuracy', patience=50, restore_best_weights=True, mode="max")
             history = model.fit(trainX,
                                 trainY,
                                 batch_size=batch_size,
@@ -68,7 +68,7 @@ class CustomTuner(kt.Tuner):
                                 validation_data=validation_data,
                                 workers=6,
                                 use_multiprocessing=True,
-                                callbacks=[early_stop, WandbCallback(save_model=True, monitor=objective, mode='max')])
+                                callbacks=[early_stop, WandbCallback(save_model=False, monitor=objective, mode='max')])
 
             # Get the validation objective of the best epoch model which is fully trained
             objective_value = max(history.history[objective])
