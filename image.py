@@ -15,6 +15,7 @@ import SimpleITK as sitk
 import multiprocessing as mp
 import logging
 import tqdm
+import math
 
 
 class Image:
@@ -534,45 +535,52 @@ class ImageCharacteristics:
         self.cov_images = cov_images
         self.normal_images = normal_images
 
-    def process_image(self, img, label):
+    def extract_from_image(self, img, label):
         return np.hstack((img.hist(), img.radiomic(), [label]))
 
     def save(self, file_path):
         """
-        Computes the histogram and haralick features for each image and saves them to a csv file.
+        Computes the histogram and texture features for each image and saves them to a csv file.
 
         Args:
         - file_path (str): The path to the file where the data will be saved.
         """
-        # set level for all classes
         logger = logging.getLogger("radiomics")
         logger.setLevel(logging.ERROR)
-        # ... or set level for specific class
-        logger = logging.getLogger("radiomics.glcm")
-        logger.setLevel(logging.ERROR)
         # Define the number of worker processes to use
-        num_workers = 24
+        num_workers = 12
 
         # Split the images into chunks for parallel processing
-        normal_chunks = [self.normal_images[i:i+num_workers] for i in range(0, len(self.normal_images), num_workers)]
-        cov_chunks = [self.cov_images[i:i+num_workers] for i in range(0, len(self.cov_images), num_workers)]
+        normal_chunks = np.array_split(self.normal_images, num_workers)
+        cov_chunks = np.array_split(self.cov_images, num_workers)
 
         # Create a pool of worker processes
         pool = mp.Pool(num_workers)
 
         try:
-            # Process the normal images in parallel
-            normal_results = []
-            for chunk in tqdm.tqdm(normal_chunks, desc="Processing normal images"):
-                normal_results += pool.starmap(self.process_image, [(img, 0) for img in chunk])
+            total_cov = len(self.cov_images)
+            total_normal = len(self.normal_images)
 
-            # Process the cov images in parallel
+            # Extract features from the normal images in parallel
+            normal_results = []
+            normal_progress = tqdm.tqdm(total=total_normal, desc='Extracting features from normal images')
+            for chunk in normal_chunks:
+                for img in chunk:
+                    normal_results.append(pool.apply_async(self.extract_from_image, args=(img, 0),
+                                          callback=lambda _: normal_progress.update(1)))
+            normal_results = [result.get() for result in normal_results]
+
+            # Extract features from the cov images in parallel
             cov_results = []
-            for chunk in tqdm.tqdm(cov_chunks, desc="Processing cov images"):
-                cov_results += pool.starmap(self.process_image, [(img, 1) for img in chunk])
+            cov_progress = tqdm.tqdm(total=total_cov, desc='Extracting features from cov images')
+            for chunk in cov_chunks:
+                for img in chunk:
+                    cov_results.append(pool.apply_async(self.extract_from_image, args=(
+                        img, 1), callback=lambda _: cov_progress.update(1)))
+            cov_results = [result.get() for result in cov_results]
 
             # Combine the results for cov and non-cov images
-            data = [item for sublist in normal_results + cov_results for item in sublist]
+            data = normal_results + cov_results
 
             # Convert the data to a pandas DataFrame and save it to a csv file
             pd.DataFrame(data).to_csv(file_path, index=False)

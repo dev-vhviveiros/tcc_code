@@ -101,7 +101,7 @@ class Main:
             metrics=metrics,
             optimizer_callout=lambda hp: hp.Choice("optimizer", values=["sgd", "adam", "adadelta"]),
             activation_callout=lambda hp: hp.Choice(
-                "activation", values=['relu', 'tahn', 'softsign', 'softplus', 'selu', 'elu']),
+                "activation", values=['relu', 'softsign', 'softplus', 'selu', 'elu']),
             activation_output_callout=lambda hp: hp.Choice(
                 "activation_output", values=['sigmoid']),
             loss_callout=lambda hp: hp.Choice(
@@ -129,7 +129,7 @@ class Main:
 # RUN
 main = Main("baffa_dataset_256")
 try:
-    main.preprocessing(input_size=(256, 256, 1), target_size=(256, 256), skip_to_step=4)
+    # main.preprocessing(input_size=(256, 256, 1), target_size=(256, 256), skip_to_step=4)
     main.tuning(1490)
 finally:
     main.finish_wdb()
