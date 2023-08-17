@@ -8,14 +8,14 @@ from kerastuner.oracles import BayesianOptimizationOracle
 
 
 class Main:
-    def __init__(self, tag) -> None:
+    def __init__(self, wdb_tags, dataset_alias) -> None:
         # Check the availability of gpu
         gpus = tf.config.list_physical_devices('GPU')
         if not gpus:
             raise RuntimeError("No GPUs available")
         tf.config.experimental.set_memory_growth(gpus[0], True)
         # Initialize the WandbUtils class and start a new run
-        self.wdb = WandbUtils(tag)
+        self.wdb = WandbUtils(wdb_tags, dataset_alias)
 
     def preprocessing(self, input_size, target_size, skip_to_step=None):
         # Initialize the Preprocessing class
@@ -123,13 +123,13 @@ class Main:
         classifier.tune(hypermodel, oracle, 3000, objective, batch_size_callout, self.wdb)
         return self
 
-    def finish_wdb(self): self.wdb.finish()
+    def finish(self): self.wdb.finish()
 
 
 # RUN
-main = Main("baffa_dataset_256")
+main = Main("test", "baffa_dataset_256")
 try:
     # main.preprocessing(input_size=(256, 256, 1), target_size=(256, 256), skip_to_step=4)
     main.tuning(1490)
 finally:
-    main.finish_wdb()
+    main.finish()

@@ -22,7 +22,7 @@ class WandbUtils:
         wdb_data_alias (str): The alias of the WandB data to use for this run.
     """
 
-    def __init__(self, wdb_tag):
+    def __init__(self, wdb_tags, artifact_alias):
         """
         Initializes a new instance of the `WandbUtils` class.
 
@@ -32,8 +32,9 @@ class WandbUtils:
         self.project_owner = load_config("wb_project_owner")
         self.project_name = load_config("wb_project_name")
         self.project_path = load_config("wb_project_path")
-        self.wdb_tag = wdb_tag
-        self._run = wandb.init(project=self.project_name, group="main", tags=wdb_tag)
+        self.wdb_tags = wdb_tags
+        self.artifact_alias = artifact_alias
+        self._run = wandb.init(project=self.project_name, group="main", tags=wdb_tags)
 
     def finish(self):
         """
@@ -151,7 +152,7 @@ class WandbUtils:
             str: A string in the format 'project_path/artifact_model_tag:wdb_data_alias'.
         """
         # Return a string in the format 'project_path/artifact_model_tag:wdb_data_alias'.
-        return '%s/%s:%s' % (self.project_path, tag, self.wdb_tag)
+        return '%s/%s:%s' % (self.project_path, tag, self.artifact_alias)
 
     def log_table(self):
         """
@@ -257,7 +258,7 @@ class WandbUtils:
             artifact.add_dir(dataset_artifact.path)
 
             # Log the artifact to W&B using the provided aliases.
-            run.log_artifact(artifact, aliases=dataset_artifact.aliases + [self.wdb_tag])
+            run.log_artifact(artifact, aliases=dataset_artifact.aliases + [self.artifact_alias])
 
             # Wait for the artifact logging
             artifact.wait()
@@ -278,7 +279,7 @@ class WandbUtils:
         # Define a callback function that takes in a `run` parameter.
         def callback(run):
             # Get the W&B artifact path for the specified dataset artifact.
-            artifact_wdb_path = dataset_artifact.wb_artifact_path(self.project_path, self.wdb_tag)
+            artifact_wdb_path = dataset_artifact.wb_artifact_path(self.project_path, self.artifact_alias)
             # Use the W&B artifact with the specified path and type.
             artifact = run.use_artifact(artifact_wdb_path, type=DATASET_TAG)
             # Download the artifact to the local machine and return the path where it was downloaded to.
@@ -339,7 +340,7 @@ class WandbUtils:
         model_artifact = self.generate_model_artifact()
 
         # Log the model artifact to W&B using the provided aliases.
-        run.log_artifact(model_artifact, aliases=[self.wdb_tag])
+        run.log_artifact(model_artifact, aliases=[self.artifact_alias])
 
         # Wait for the artifact logging
         model_artifact.wait()
@@ -357,7 +358,7 @@ class WandbUtils:
         # Define a callback function that takes in a `run` parameter.
         def callback(run):
             # Get the W&B artifact path for the characteristics artifact.
-            artifact_wdb_path = Characteristics().wb_artifact_path(self.project_path, self.wdb_tag)
+            artifact_wdb_path = Characteristics().wb_artifact_path(self.project_path, self.artifact_alias)
             # Use the W&B artifact with the specified path and type.
             artifact = run.use_artifact(artifact_wdb_path, type=CHARACTERISTICS_TAG)
             # Download the artifact to the local machine and return the path where it was downloaded to.
@@ -385,7 +386,7 @@ class WandbUtils:
             artifact.add_file(Characteristics().path)
 
             # Log the artifact to W&B using the provided aliases.
-            run.log_artifact(artifact, aliases=[CHARACTERISTICS_TAG, self.wdb_tag])
+            run.log_artifact(artifact, aliases=[CHARACTERISTICS_TAG, self.artifact_alias])
 
             # Wait for the artifact logging
             artifact.wait()

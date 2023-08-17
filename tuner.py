@@ -55,10 +55,8 @@ class CustomTuner(kt.Tuner):
         total_samples = num_train_samples + num_val_samples
         print(f"Trial {trial.trial_id}: Total samples: {total_samples}")
 
-        tag = wandb_utils.wdb_tag
-
         # Initiates new run for each trial on the dashboard of Weights & Biases
-        with wandb.init(project="tcc_code", config={**hp.values}, group="trial", tags=[tag]) as run:
+        with wandb.init(project="tcc_code", config={**hp.values}, group="trial", tags=wandb_utils.wdb_tags) as run:
             # Use WandbCallback() to log all the metric data such as loss, accuracy, etc. on the Weights & Biases dashboard for visualization
             early_stop = EarlyStopping(monitor='val_accuracy', patience=50, restore_best_weights=True, mode="max")
             history = model.fit(trainX,
