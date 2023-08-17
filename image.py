@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import mahotas as mt
 from numba import njit, prange
 
-from models import unet_model
+from lung_seg_model import model
 
 from utils import abs_path
 from radiomics import featureextractor
@@ -504,7 +504,7 @@ class LungMaskGenerator:
         :return: None
         """
         # Load saved model from disk
-        model = unet_model(input_size=self.input_size)
+        model = model(input_size=self.input_size)
         model.load_weights('segmentation_model.hdf5')
 
         # Get list of image files from input folder

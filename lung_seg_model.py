@@ -1,12 +1,12 @@
-from tensorflow.keras.layers import Dropout, Dense, Conv2D, MaxPooling2D, Conv2DTranspose, Input, concatenate
-from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Conv2DTranspose, Input, concatenate
+from tensorflow.keras.models import Model
 import tensorflow as tf
 config = tf.compat.v1.ConfigProto()
 config.gpu_options.allow_growth = True
 sess = tf.compat.v1.Session(config=config)
 
 
-def unet_model(input_size):
+def model(input_size):
     inputs = Input(input_size)
 
     conv1 = Conv2D(32, (3, 3), activation='relu', padding='same')(inputs)
@@ -51,24 +51,3 @@ def unet_model(input_size):
     conv10 = Conv2D(1, (1, 1), activation='sigmoid')(conv9)
 
     return Model(inputs=[inputs], outputs=[conv10])
-
-
-def classifier_model(optimizer, activation, activationOutput, units, metrics=['accuracy'], loss='binary_crossentropy'):
-    classifier = Sequential()
-    classifier.add(
-        Dense(units=units, activation=activation, input_shape=(267,)))
-    classifier.add(Dropout(rate=0.2))
-    classifier.add(Dense(units=units, activation=activation))
-    classifier.add(Dropout(rate=0.2))
-    classifier.add(Dense(units=units, activation=activation))
-    classifier.add(Dropout(rate=0.2))
-    classifier.add(Dense(units=units, activation=activation))
-    classifier.add(Dropout(rate=0.2))
-    classifier.add(Dense(units=units, activation=activation))
-    classifier.add(Dropout(rate=0.2))
-    classifier.add(Dense(units=units, activation=activation))
-    classifier.add(Dropout(rate=0.2))
-    classifier.add(Dense(units=1, activation=activationOutput))
-    classifier.compile(optimizer=optimizer,
-                       loss=loss, metrics=metrics)
-    return classifier
