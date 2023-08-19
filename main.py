@@ -99,17 +99,19 @@ class Main:
 
         hypermodel = CustomHyperModel(
             metrics=metrics,
-            optimizer_callout=lambda hp: hp.Choice("optimizer", values=["sgd", "adam", "adadelta"]),
+            optimizer_callout=lambda hp: hp.Choice("optimizer", values=["sgd", "adam", "rmsprop"]),
             activation_callout=lambda hp: hp.Choice(
-                "activation", values=['relu', 'softsign', 'softplus', 'selu', 'elu']),
+                "activation", values=['relu', 'tanh', 'sigmoid']),
             activation_output_callout=lambda hp: hp.Choice(
                 "activation_output", values=['sigmoid']),
             loss_callout=lambda hp: hp.Choice(
                 "loss", values=['mean_squared_error', 'kl_divergence', 'poisson', 'binary_crossentropy']),
             dropout_callout=lambda hp: hp.Float("dropout", min_value=0.1, max_value=0.3, step=0.05),
-            units_callout=lambda hp: hp.Int("units", min_value=50, max_value=500, step=50),
             learning_rate_callout=lambda hp: hp.Float("learning_rate", min_value=1e-6, max_value=1e-2, step=1e-4),
             num_layers_callout=lambda hp: hp.Int("num_layers", min_value=3, max_value=20, step=1),
+            filters_callout=lambda hp: hp.Int("filters", min_value=16, max_value=64, step=16),
+            kernel_size_callout=lambda hp: hp.Int("kernel_size", min_value=3, max_value=7, step=2),
+            pool_size_callout=lambda hp: hp.Int("pool_size", min_value=2, max_value=4, step=1)
         )
 
         objective = 'val_accuracy'
@@ -127,7 +129,7 @@ class Main:
 
 
 # RUN
-main = Main("test", "baffa_dataset_256")
+main = Main("cnn_test", "baffa_dataset_256")
 try:
     # main.preprocessing(input_size=(256, 256, 1), target_size=(256, 256), skip_to_step=4)
     main.tuning(1490)
