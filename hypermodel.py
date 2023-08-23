@@ -63,27 +63,41 @@ class CustomHyperModel(HyperModel):
         # Get the optimizer
         optimizer = self.get_optimizer(optimizer_hp, learning_rate_hp)
 
-        # Create the model
-        classifier = Sequential()
+        model = Sequential([
+            Conv1D(filters=16, kernel_size=3, activation='relu', input_shape=(348, 1)),
+            MaxPooling1D(pool_size=2),
+            Conv1D(filters=32, kernel_size=3, activation='relu'),
+            MaxPooling1D(pool_size=2),
+            Flatten(),
+            Dense(256, activation='relu'),
+            Dropout(0.4),
+            Dense(128, activation='relu'),
+            Dropout(0.4),
+            Dense(1, activation='sigmoid')
+        ])
 
-        # Add the layers
-        classifier.add(Conv1D(filters=filters_hp, kernel_size=kernel_size_hp,
-                       activation=activation_hp, input_shape=(1, 348)))
-        classifier.add(MaxPooling1D(pool_size=pool_size_hp))
-        classifier.add(Dropout(rate=dropout_hp))
-        for _ in range(num_layers_hp):
-            classifier.add(Conv1D(filters=filters_hp, kernel_size=kernel_size_hp, activation=activation_hp))
-            classifier.add(MaxPooling1D(pool_size=pool_size_hp))
-            classifier.add(Dropout(rate=dropout_hp))
+        # # Create the model
+        # model = Sequential()
 
-        # Add the output layer
-        classifier.add(Flatten())
-        classifier.add(Dense(units=1, activation=activation_output_hp))
+        # # Add the layers
+        # model.add(Conv1D(filters=filters_hp, kernel_size=kernel_size_hp, input_shape=(348, 1),
+        #                  activation=activation_hp))
+        # model.add(MaxPooling1D(pool_size=pool_size_hp))
+        # model.add(Dropout(rate=dropout_hp))
+        # for _ in range(num_layers_hp):
+        #     model.add(Conv1D(filters=filters_hp, kernel_size=kernel_size_hp,
+        #                      activation=activation_hp, padding='same'))
+        #     model.add(MaxPooling1D(pool_size=pool_size_hp))
+        #     model.add(Dropout(rate=dropout_hp))
+
+        # # Add the output layer
+        # model.add(Flatten())
+        # model.add(Dense(units=1, activation=activation_output_hp))
 
         # Compile the model with the given optimizer, loss function, and metrics
-        classifier.compile(optimizer=optimizer, loss=loss_hp, metrics=self.metrics)
+        model.compile(optimizer=optimizer, loss=loss_hp, metrics=self.metrics)
 
-        return classifier
+        return model
 
     def get_optimizer(self, optimizer_name, learning_rate):
         """

@@ -110,8 +110,8 @@ class Main:
             learning_rate_callout=lambda hp: hp.Float("learning_rate", min_value=1e-6, max_value=1e-2, step=1e-4),
             num_layers_callout=lambda hp: hp.Int("num_layers", min_value=3, max_value=20, step=1),
             filters_callout=lambda hp: hp.Int("filters", min_value=16, max_value=64, step=16),
-            kernel_size_callout=lambda hp: hp.Int("kernel_size", min_value=3, max_value=7, step=2),
-            pool_size_callout=lambda hp: hp.Int("pool_size", min_value=2, max_value=4, step=1)
+            kernel_size_callout=lambda hp: hp.Int("kernel_size", min_value=3, max_value=5, step=2),
+            pool_size_callout=lambda hp: hp.Int("pool_size", min_value=3, max_value=4, step=1)
         )
 
         objective = 'val_accuracy'
