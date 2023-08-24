@@ -41,43 +41,49 @@ class CustomTuner(kt.Tuner):
         # Get the hyperparameters for the current trial
         hp = trial.hyperparameters
 
-        # Create the model with the current trial hyperparameters
-        model = self.hypermodel.build(hp)
+        try:
+            # Create the model with the current trial hyperparameters
+            model = self.hypermodel.build(hp)
 
-        # Get the batch size for the current trial hyperparameters
-        batch_size = self.batch_size_callout(hp)
+            # Get the batch size for the current trial hyperparameters
+            batch_size = self.batch_size_callout(hp)
 
-        # Print the number of training and validation samples
-        num_train_samples = len(trainX)
-        num_val_samples = len(validation_data[0])
-        print(f"Trial {trial.trial_id}: Training on {num_train_samples} samples, validating on {num_val_samples} samples")
+            # Print the number of training and validation samples
+            num_train_samples = len(trainX)
+            num_val_samples = len(validation_data[0])
+            print(f"Trial {trial.trial_id}: Training on {num_train_samples} samples, validating on {num_val_samples} samples")
 
-        # Print the sum of training and validation samples
-        total_samples = num_train_samples + num_val_samples
-        print(f"Trial {trial.trial_id}: Total samples: {total_samples}")
+            # Print the sum of training and validation samples
+            total_samples = num_train_samples + num_val_samples
+            print(f"Trial {trial.trial_id}: Total samples: {total_samples}")
 
-        # Reshape the input data to add a new axis
-        trainx_reshaped = trainX[..., np.newaxis]
-        validationx_reshaped = validation_data[0][..., np.newaxis]
+            # Reshape the input data to add a new axis
+            trainx_reshaped = trainX[..., np.newaxis]
+            validationx_reshaped = validation_data[0][..., np.newaxis]
 
-        # Initiates new run for each trial on the dashboard of Weights & Biases
-        with wandb.init(project="tcc_code", config={**hp.values}, group="trial", tags=wandb_utils.wdb_tags) as run:
-            # Use WandbCallback() to log all the metric data such as loss, accuracy, etc. on the Weights & Biases dashboard for visualization
-            early_stop = EarlyStopping(monitor='val_accuracy', patience=50, restore_best_weights=True, mode="max")
-            history = model.fit(trainx_reshaped,
-                                trainY,
-                                batch_size=batch_size,
-                                epochs=epochs,
-                                validation_data=(validationx_reshaped, validation_data[1]),
-                                workers=6,
-                                use_multiprocessing=True,
-                                callbacks=[early_stop, WandbCallback(save_model=False, monitor=objective, mode='max')])
+            # Initiates new run for each trial on the dashboard of Weights & Biases
+            with wandb.init(project="tcc_code", config={**hp.values}, group="trial", tags=wandb_utils.wdb_tags) as run:
+                # Use WandbCallback() to log all the metric data such as loss, accuracy, etc. on the Weights & Biases dashboard for visualization
+                early_stop = EarlyStopping(monitor='val_accuracy', patience=50, restore_best_weights=True, mode="max")
+                history = model.fit(trainx_reshaped,
+                                    trainY,
+                                    batch_size=batch_size,
+                                    epochs=epochs,
+                                    validation_data=(validationx_reshaped, validation_data[1]),
+                                    workers=6,
+                                    use_multiprocessing=True,
+                                    callbacks=[early_stop, WandbCallback(save_model=False, monitor=objective, mode='max')])
+                # Get the validation objective of the best epoch model which is fully trained
+                objective_value = max(history.history[objective])
 
-            # Get the validation objective of the best epoch model which is fully trained
-            objective_value = max(history.history[objective])
+                # Send the objective data to the oracle for comparison of hyperparameters
+                self.oracle.update_trial(trial.trial_id, {objective: objective_value})
 
-            # Send the objective data to the oracle for comparison of hyperparameters
-            self.oracle.update_trial(trial.trial_id, {objective: objective_value})
+        except Exception as e:
+            print(e)
+            self.oracle.update_trial(trial.trial_id, {objective: 0})
+            return
 
+        finally:
             # End the run on the Weights & Biases dashboard
             run.finish()

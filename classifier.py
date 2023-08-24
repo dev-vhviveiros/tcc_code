@@ -62,8 +62,8 @@ class Classifier:
         print("SHAPE:" + str(characteristics_df.shape))
 
         # Extract the input data (image characteristics) and output data (labels)
-        image_characteristics = characteristics_df.iloc[:, 0:348].values
-        labels = characteristics_df.iloc[:, 348].values
+        image_characteristics = characteristics_df.iloc[:, :268].values
+        labels = characteristics_df.iloc[:, 268].values
 
         # Select the first num_samples samples for each label
         selected_indices = []

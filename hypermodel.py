@@ -70,19 +70,12 @@ class CustomHyperModel(HyperModel):
         # Create a Sequential model
         model = Sequential()
 
-        # Add the input Conv1D layer with the specified filters, kernel size, and activation function
-        model.add(Conv1D(filters=filters_hp, kernel_size=kernel_size_hp, input_shape=(348, 1),
-                         activation=activation_hp))
-
-        # Add a MaxPooling1D layer and a Dropout layer to prevent overfitting
-        model.add(MaxPooling1D(pool_size=pool_size_hp))
-
         # Add the specified number of convolutional layers to the model
         if (conv_layers_hp >= 1):
             for i in range(0, conv_layers_hp):
                 layer_filter_size = (2 ** (i+1)) * filters_hp
                 model.add(Conv1D(filters=layer_filter_size, kernel_size=kernel_size_hp,
-                                 activation=activation_hp, padding='same'))
+                                 activation=activation_hp))
                 model.add(MaxPooling1D(pool_size=pool_size_hp))
 
         # Add a Flatten layer to convert the output of the convolutional layers to a 1D tensor

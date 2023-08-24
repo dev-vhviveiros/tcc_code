@@ -16,6 +16,7 @@ import multiprocessing as mp
 import logging
 import tqdm
 import math
+import csv
 
 
 class Image:
@@ -406,18 +407,6 @@ class ImageProcessor:
         # Return the Image object with the new processed data
         return img
 
-    def __check_mask_match(self, img: Image, mask: Image) -> bool:
-        """
-        Verifies if the mask filename is equals to the image filename.
-
-        Args:
-            img (Image): the image
-            mask (Image): the mask of the image
-        """
-        img_filename = img.get_filename()
-        mask_filename = mask.get_filename()
-        return "%s_mask%s" % (img_filename[0], img_filename[1]) == mask_filename[0] + mask_filename[1]
-
     def process(self):
         return list(map(lambda tuple: self.__process_image(tuple.image, tuple.mask), self.tuples))
 
@@ -536,7 +525,9 @@ class ImageCharacteristics:
         self.normal_images = normal_images
 
     def extract_from_image(self, img, label):
-        return np.hstack((img.hist(), img.radiomic(), [label]))
+        yield from img.hist()
+        yield from img.haralick()
+        yield label
 
     def save(self, file_path):
         """
@@ -550,40 +541,31 @@ class ImageCharacteristics:
         # Define the number of worker processes to use
         num_workers = 12
 
-        # Split the images into chunks for parallel processing
-        normal_chunks = np.array_split(self.normal_images, num_workers)
-        cov_chunks = np.array_split(self.cov_images, num_workers)
-
         # Create a pool of worker processes
         pool = mp.Pool(num_workers)
 
         try:
-            total_cov = len(self.cov_images)
-            total_normal = len(self.normal_images)
+            # Open the output file for writing
+            with open(file_path, 'w') as f:
+                writer = csv.writer(f)
 
-            # Extract features from the normal images in parallel
-            normal_results = []
-            normal_progress = tqdm.tqdm(total=total_normal, desc='Extracting features from normal images')
-            for chunk in normal_chunks:
-                for img in chunk:
-                    normal_results.append(pool.apply_async(self.extract_from_image, args=(img, 0),
-                                          callback=lambda _: normal_progress.update(1)))
-            normal_results = [result.get() for result in normal_results]
+                total_cov = len(self.cov_images)
+                total_normal = len(self.normal_images)
 
-            # Extract features from the cov images in parallel
-            cov_results = []
-            cov_progress = tqdm.tqdm(total=total_cov, desc='Extracting features from cov images')
-            for chunk in cov_chunks:
-                for img in chunk:
-                    cov_results.append(pool.apply_async(self.extract_from_image, args=(
-                        img, 1), callback=lambda _: cov_progress.update(1)))
-            cov_results = [result.get() for result in cov_results]
+                # Extract features from the normal images in parallel
+                normal_progress = tqdm.tqdm(total=total_normal, desc='Extracting features from normal images')
+                for img in self.normal_images:
+                    features = self.extract_from_image(img, 0)
+                    writer.writerow(features)
+                    normal_progress.update(1)
 
-            # Combine the results for cov and non-cov images
-            data = normal_results + cov_results
+                # Extract features from the cov images in parallel
+                cov_progress = tqdm.tqdm(total=total_cov, desc='Extracting features from cov images')
+                for img in self.cov_images:
+                    features = self.extract_from_image(img, 1)
+                    writer.writerow(features)
+                    cov_progress.update(1)
 
-            # Convert the data to a pandas DataFrame and save it to a csv file
-            pd.DataFrame(data).to_csv(file_path, index=False)
         finally:
             # Close the worker processes
             pool.close()

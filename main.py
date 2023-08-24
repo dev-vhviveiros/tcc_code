@@ -101,7 +101,7 @@ class Main:
             metrics=metrics,
             optimizer_callout=lambda hp: hp.Choice("optimizer", values=["sgd", "adam", "rmsprop"]),
             activation_callout=lambda hp: hp.Choice(
-                "activation", values=['relu', 'tanh', 'sigmoid']),
+                "activation", values=['relu', 'elu', 'selu', 'sigmoid']),
             activation_output_callout=lambda hp: hp.Choice(
                 "activation_output", values=['sigmoid']),
             loss_callout=lambda hp: hp.Choice(
@@ -111,7 +111,7 @@ class Main:
             dense_layers_callout=lambda hp: hp.Int("num_layers", min_value=1, max_value=20, step=1),
             filters_callout=lambda hp: hp.Int("filters", min_value=8, max_value=64, step=8),
             kernel_size_callout=lambda hp: hp.Int("kernel_size", min_value=3, max_value=5, step=2),
-            pool_size_callout=lambda hp: hp.Int("pool_size", min_value=3, max_value=4, step=1),
+            pool_size_callout=lambda hp: hp.Int("pool_size", min_value=2, max_value=4, step=1),
             conv_layers_callout=lambda hp: hp.Int("conv_layers", min_value=1, max_value=8, step=1),
             units_callout=lambda hp: hp.Int("units", min_value=32, max_value=1024, step=16),
         )
@@ -131,9 +131,9 @@ class Main:
 
 
 # RUN
-main = Main("cnn_test", "baffa_dataset_256")
+main = Main("cnn_test", "baffa_dataset")
 try:
-    # main.preprocessing(input_size=(256, 256, 1), target_size=(256, 256), skip_to_step=4)
+    # main.preprocessing(input_size=(512, 512, 1), target_size=(512, 512), skip_to_step=4)
     main.tuning(1490)
 finally:
     main.finish()
