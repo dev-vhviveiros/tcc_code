@@ -108,10 +108,12 @@ class Main:
                 "loss", values=['mean_squared_error', 'kl_divergence', 'poisson', 'binary_crossentropy']),
             dropout_callout=lambda hp: hp.Float("dropout", min_value=0.1, max_value=0.3, step=0.05),
             learning_rate_callout=lambda hp: hp.Float("learning_rate", min_value=1e-6, max_value=1e-2, step=1e-4),
-            num_layers_callout=lambda hp: hp.Int("num_layers", min_value=3, max_value=20, step=1),
-            filters_callout=lambda hp: hp.Int("filters", min_value=16, max_value=64, step=16),
+            dense_layers_callout=lambda hp: hp.Int("num_layers", min_value=1, max_value=20, step=1),
+            filters_callout=lambda hp: hp.Int("filters", min_value=8, max_value=64, step=8),
             kernel_size_callout=lambda hp: hp.Int("kernel_size", min_value=3, max_value=5, step=2),
-            pool_size_callout=lambda hp: hp.Int("pool_size", min_value=3, max_value=4, step=1)
+            pool_size_callout=lambda hp: hp.Int("pool_size", min_value=3, max_value=4, step=1),
+            conv_layers_callout=lambda hp: hp.Int("conv_layers", min_value=1, max_value=8, step=1),
+            units_callout=lambda hp: hp.Int("units", min_value=32, max_value=1024, step=16),
         )
 
         objective = 'val_accuracy'

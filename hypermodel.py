@@ -9,7 +9,7 @@ class CustomHyperModel(HyperModel):
     A custom hypermodel subclassed from `HyperModel` that defines the architecture of the neural network.
     """
 
-    def __init__(self, optimizer_callout, activation_callout, activation_output_callout, dropout_callout, loss_callout, learning_rate_callout, num_layers_callout, filters_callout, kernel_size_callout, pool_size_callout, metrics=["accuracy"]):
+    def __init__(self, optimizer_callout, activation_callout, activation_output_callout, dropout_callout, loss_callout, learning_rate_callout, dense_layers_callout, filters_callout, kernel_size_callout, pool_size_callout, conv_layers_callout, units_callout, metrics=["accuracy"]):
         """
         Initializes a new instance of the CustomHyperModel class.
 
@@ -32,10 +32,12 @@ class CustomHyperModel(HyperModel):
         self.dropout_callout = dropout_callout
         self.loss_callout = loss_callout
         self.learning_rate_callout = learning_rate_callout
-        self.num_layers_callout = num_layers_callout
+        self.dense_layers_callout = dense_layers_callout
+        self.conv_layers_callout = conv_layers_callout
         self.filters_callout = filters_callout
         self.kernel_size_callout = kernel_size_callout
         self.pool_size_callout = pool_size_callout
+        self.units_callout = units_callout
         self.metrics = metrics
 
     def build(self, hp):
@@ -55,44 +57,53 @@ class CustomHyperModel(HyperModel):
         activation_output_hp = self.activation_output_callout(hp)
         loss_hp = self.loss_callout(hp)
         dropout_hp = self.dropout_callout(hp)
-        num_layers_hp = self.num_layers_callout(hp)
+        dense_layers_hp = self.dense_layers_callout(hp)
         filters_hp = self.filters_callout(hp)
         kernel_size_hp = self.kernel_size_callout(hp)
         pool_size_hp = self.pool_size_callout(hp)
+        conv_layers_hp = self.conv_layers_callout(hp)
+        units_hp = self.units_callout(hp)
 
         # Get the optimizer
         optimizer = self.get_optimizer(optimizer_hp, learning_rate_hp)
 
-        model = Sequential([
-            Conv1D(filters=16, kernel_size=3, activation='relu', input_shape=(348, 1)),
-            MaxPooling1D(pool_size=2),
-            Conv1D(filters=32, kernel_size=3, activation='relu'),
-            MaxPooling1D(pool_size=2),
-            Flatten(),
-            Dense(256, activation='relu'),
-            Dropout(0.4),
-            Dense(128, activation='relu'),
-            Dropout(0.4),
-            Dense(1, activation='sigmoid')
-        ])
+        # Create a Sequential model
+        model = Sequential()
 
-        # # Create the model
-        # model = Sequential()
+        # Add the input Conv1D layer with the specified filters, kernel size, and activation function
+        model.add(Conv1D(filters=filters_hp, kernel_size=kernel_size_hp, input_shape=(348, 1),
+                         activation=activation_hp))
 
-        # # Add the layers
-        # model.add(Conv1D(filters=filters_hp, kernel_size=kernel_size_hp, input_shape=(348, 1),
-        #                  activation=activation_hp))
-        # model.add(MaxPooling1D(pool_size=pool_size_hp))
-        # model.add(Dropout(rate=dropout_hp))
-        # for _ in range(num_layers_hp):
-        #     model.add(Conv1D(filters=filters_hp, kernel_size=kernel_size_hp,
-        #                      activation=activation_hp, padding='same'))
-        #     model.add(MaxPooling1D(pool_size=pool_size_hp))
-        #     model.add(Dropout(rate=dropout_hp))
+        # Add a MaxPooling1D layer and a Dropout layer to prevent overfitting
+        model.add(MaxPooling1D(pool_size=pool_size_hp))
 
-        # # Add the output layer
-        # model.add(Flatten())
-        # model.add(Dense(units=1, activation=activation_output_hp))
+        # Add the specified number of convolutional layers to the model
+        if (conv_layers_hp >= 1):
+            for i in range(0, conv_layers_hp):
+                layer_filter_size = (2 ** (i+1)) * filters_hp
+                model.add(Conv1D(filters=layer_filter_size, kernel_size=kernel_size_hp,
+                                 activation=activation_hp, padding='same'))
+                model.add(MaxPooling1D(pool_size=pool_size_hp))
+
+        # Add a Flatten layer to convert the output of the convolutional layers to a 1D tensor
+        model.add(Flatten())
+
+        # Calculate the minimum divisor to ensure the number of units in each dense layer is greater than 2
+        divisor = 2.0
+        while round(units_hp / (divisor ** dense_layers_hp)) <= 2:
+            divisor -= 0.1
+
+        # Add the specified number of dense layers to the model
+        for i in range(0, dense_layers_hp):
+            layer_units = units_hp / (divisor ** i)
+            layer_units = max(2, round(layer_units))  # Adjust the layer_units to be at least 2
+            if layer_units < 2:
+                break
+            model.add(Dense(units=layer_units, activation=activation_hp))
+            model.add(Dropout(rate=dropout_hp))
+
+        # Add an output layer with a single unit and the specified activation function
+        model.add(Dense(units=1, activation=activation_output_hp))
 
         # Compile the model with the given optimizer, loss function, and metrics
         model.compile(optimizer=optimizer, loss=loss_hp, metrics=self.metrics)
