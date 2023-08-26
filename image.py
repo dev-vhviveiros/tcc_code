@@ -9,7 +9,7 @@ from numba import njit, prange
 
 from lung_seg_model import model
 
-from utils import abs_path
+from utils import abs_path, load_config
 from radiomics import featureextractor
 import SimpleITK as sitk
 import multiprocessing as mp
@@ -143,151 +143,23 @@ class Image:
 
         return ht_mean
 
-    def radiomic(self):
-        # Define the parameters for feature extraction
-        params = {
-            'binWidth': 25,
-            'resampledPixelSpacing': None,
-            'interpolator': 'sitkBSpline',
-            'enableCExtensions': True,
-            'featureClass': 'All',
-            'force2D': True,
-            'minimumROIDimensions': 2,
-            'normalize': True,
-            'normalizeScale': 1,
-            'removeOutliers': None,
-            'sigma': [1, 2, 3],
-            'additionalInfo': True,
-            'verbose': True,
-            'label': 1,
-            'padDistance': 5,
-            'distances': [1],
-            'force2Ddimension': 0,
-            'enableRadiomicsImageTypes': None,
-            'enableWavelet': False,
-            'resegmentRange': None,
-            'resegmentStep': None,
-            'resegmentThreshold': None,
-            'interpolator': 'sitkBSpline',
-            'preCrop': False,
-            'preCropPadding': 10,
-            'preCropNormalize': False,
-            'binCount': 64,
-            'normalizeBins': False,
-            'squareKernel': False,
-            'kernelRadius': 2,
-            'kernelType': 'square',
-            'weightingNorm': None,
-            'weightingParam': None,
-            'additionalFeatures': [
-                'firstorder',
-                'glcm',
-                'glrlm',
-                'glszm',
-                'ngtdm',
-                'gldm'
-            ],
-            'firstorder': [
-                'Mean',
-                'Variance',
-                'Skewness',
-                'Kurtosis',
-                'Minimum',
-                'Maximum',
-                'Median',
-                'Range',
-                'InterquartileRange'
-            ],
-            'glcm': [
-                'Autocorrelation',
-                'JointAverage',
-                'ClusterProminence',
-                'ClusterShade',
-                'ClusterTendency',
-                'Contrast',
-                'Correlation',
-                'DifferenceAverage',
-                'DifferenceEntropy',
-                'DifferenceVariance',
-                'Dissimilarity',
-                'Energy',
-                'Entropy',
-                'Homogeneity1',
-                'Homogeneity2',
-                'IMC1',
-                'IMC2',
-                'IDMN',
-                'IDN',
-                'InverseVariance',
-                'MaximumProbability',
-                'SumAverage',
-                'SumEntropy',
-                'SumSquares'
-            ],
-            'glrlm': [
-                'ShortRunEmphasis',
-                'LongRunEmphasis',
-                'GreyLevelNonUniformity',
-                'RunLengthNonUniformity',
-                'RunPercentage',
-                'LowGreyLevelRunEmphasis',
-                'HighGreyLevelRunEmphasis',
-                'ShortRunLowGreyLevelEmphasis',
-                'ShortRunHighGreyLevelEmphasis',
-                'LongRunLowGreyLevelEmphasis',
-                'LongRunHighGreyLevelEmphasis'
-            ],
-            'glszm': [
-                'SmallAreaEmphasis',
-                'LargeAreaEmphasis',
-                'GreyLevelNonUniformity',
-                'ZonePercentage',
-                'GreyLevelVariance',
-                'ZoneVariance',
-                'ZoneEntropy',
-                'LowGreyLevelZoneEmphasis',
-                'HighGreyLevelZoneEmphasis',
-                'SmallAreaLowGreyLevelEmphasis',
-                'SmallAreaHighGreyLevelEmphasis',
-                'LargeAreaLowGreyLevelEmphasis',
-                'LargeAreaHighGreyLevelEmphasis'
-            ],
-            'ngtdm': [
-                'Coarseness',
-                'Contrast',
-                'Busyness',
-                'Complexity',
-                'Strength'
-            ],
-            'gldm': [
-                'LargeDependenceEmphasis',
-                'LargeDependenceHighGreyLevelEmphasis',
-                'LargeDependenceLowGreyLevelEmphasis',
-                'LowDependenceEmphasis',
-                'LowDependenceHighGreyLevelEmphasis',
-                'LowDependenceLowGreyLevelEmphasis',
-                'DependenceEntropy',
-                'GreyLevelNonUniformity',
-                'GreyLevelNonUniformityNormalized',
-                'DependenceCountEntropy',
-                'DependenceCountNonUniformity',
-                'DependenceCountNonUniformityNormalized',
-                'DependenceVariance'
-            ]
-        }
+    def mahotas_characteristics(self):
+        # Extract the Mahotas characteristics from the image data
+        features = []
 
-        mask = np.ones((256, 256))
+        # LBP features
+        lbp = mt.features.lbp(self.data, 8, 8)
+        features.extend(lbp)
 
-        # Convert numpy array to SimpleITK image
-        sitk_image = sitk.GetImageFromArray(np.expand_dims(self.data, axis=0))
-        sitk_mask = sitk.GetImageFromArray(np.expand_dims(mask, axis=0))
+        # Zernike moments
+        zernike = mt.features.zernike(self.data, 10, 10)
+        features.extend(zernike)
 
-        # Create the feature extractor
-        extractor = featureextractor.RadiomicsFeatureExtractor()
+        # TAS features
+        tas = mt.features.tas(self.data)
+        features.extend(tas)
 
-        # Run the feature extraction
-        result = extractor.execute(imageFilepath=sitk_image, maskFilepath=sitk_mask)
-        return list(result.values())[36:]
+        return features
 
 
 class ImageTuple:
@@ -298,17 +170,45 @@ class ImageTuple:
     def __init__(self, image: Image, mask: Image):
         self.image = image
         self.mask = mask
+        self.check_consistency()
 
     @staticmethod
     def from_image(image: Image, masks_dir_path: str, target_size):
         """This method creates an ImageTuple from an image and a masks directory.
         The masks directory is used to find the corresponding mask image for the input image."""
         img_filename = image.get_filename()
-        # TODO: add the `_mask` endfile to the project configs
         mask_img_filename = "%s_mask%s" % (img_filename[0], img_filename[1])
         mask_img_path = "%s/%s" % (masks_dir_path, mask_img_filename)
+        mask_img_path = mask_img_path.replace("_processed", "")  # Just in case of loading processed images
         mask = Image(mask_img_path, False, False, target_size=target_size)
         return ImageTuple(image, mask)
+
+    def radiomics(self):
+        # Convert numpy array to SimpleITK image
+        sitk_image = sitk.GetImageFromArray(np.expand_dims(self.image.data, axis=0))
+        sitk_mask = sitk.GetImageFromArray(np.expand_dims(self.mask.data, axis=0))
+
+        # Create the feature extractor
+        extractor = featureextractor.RadiomicsFeatureExtractor()
+
+        # Run the feature extraction
+        result = extractor.execute(imageFilepath=sitk_image, maskFilepath=sitk_mask)
+        return list(result.values())[36:]
+
+    def check_consistency(self):
+        # Get the filenames of the image and the mask
+        image_filename, image_extension = self.image.get_filename()
+        mask_filename, mask_extension = self.mask.get_filename()
+
+        if image_extension != mask_extension:
+            raise ValueError(
+                f"{image_filename}.{image_extension} and {mask_filename}.{mask_extension} have different extensions!")
+
+        image_filename = image_filename.replace("_processed", "")
+        if image_filename + "_mask" != mask_filename:
+            # Raise an error telling that the mask doesnt represent the image:
+            raise ValueError(
+                f"The mask {mask_filename}.{mask_extension} is not valid for {image_filename}.{image_extension}!")
 
 
 class ImageLoader:
@@ -316,7 +216,7 @@ class ImageLoader:
     A class for generating and preprocessing image data for COVID-19 detection.
     """
 
-    def load_from(self, path: str, target_size, divide: bool = False, reshape: bool = False, only_data: bool = False):
+    def load_from(self, path: str, target_size, divide: bool = False, reshape: bool = False, only_data: bool = False, yield_len=False):
         """
         Generates an Image object from a given path.
 
@@ -337,8 +237,10 @@ class ImageLoader:
             If only_data is True, returns the data of the image. Otherwise, returns the entire Image object.
 
         """
-        # TODO: make it load images in parallel
         image_files = glob(path + "/*g")
+
+        if yield_len:
+            yield len(image_files)
 
         for image_file in image_files:
             if only_data:
@@ -401,7 +303,8 @@ class ImageProcessor:
         return modified_img_data
 
     def __process_image(self, img, mask):
-        eq_img_data = cv2.equalizeHist(img.data)
+        clahe = cv2.createCLAHE()
+        eq_img_data = clahe.apply(img.data)
         processed_image_data = self.__apply_mask(eq_img_data, mask.data)
         img.data = processed_image_data
         # Return the Image object with the new processed data
@@ -518,18 +421,22 @@ class ImageCharacteristics:
         - normal_images (list): A list of Image objects representing the non-cov images.
         """
         loader = ImageLoader()
-        cov_images = list(loader.load_from(cov_images_artifact, target_size, False, False, False))
-        normal_images = list(loader.load_from(normal_images_artifact, target_size, False, False, False))
+        self.cov_images = loader.load_from(cov_images_artifact,
+                                           target_size,
+                                           False, False, False, yield_len=True)
+        self.cov_lenght = self.cov_images.__next__()
+        self.normal_images = loader.load_from(normal_images_artifact,
+                                              target_size,
+                                              False, False, False, yield_len=True)
+        self.normal_lenght = self.normal_images.__next__()
 
-        self.cov_images = cov_images
-        self.normal_images = normal_images
-
-    def extract_from_image(self, img, label):
-        yield from img.hist()
-        yield from img.haralick()
+    def __extract_from_image(self, img: Image, label, mask_path):
+        img_tuple = ImageTuple.from_image(img, mask_path, img.shape())
+        yield from img.mahotas_characteristics()
+        yield from img_tuple.radiomics()
         yield label
 
-    def save(self, file_path):
+    def save(self, file_path, cov_masks_path, normal_masks_path):
         """
         Computes the histogram and texture features for each image and saves them to a csv file.
 
@@ -539,7 +446,7 @@ class ImageCharacteristics:
         logger = logging.getLogger("radiomics")
         logger.setLevel(logging.ERROR)
         # Define the number of worker processes to use
-        num_workers = 12
+        num_workers = 24
 
         # Create a pool of worker processes
         pool = mp.Pool(num_workers)
@@ -549,20 +456,17 @@ class ImageCharacteristics:
             with open(file_path, 'w') as f:
                 writer = csv.writer(f)
 
-                total_cov = len(self.cov_images)
-                total_normal = len(self.normal_images)
-
                 # Extract features from the normal images in parallel
-                normal_progress = tqdm.tqdm(total=total_normal, desc='Extracting features from normal images')
+                normal_progress = tqdm.tqdm(total=self.normal_lenght, desc='Extracting features from normal images')
                 for img in self.normal_images:
-                    features = self.extract_from_image(img, 0)
+                    features = self.__extract_from_image(img, 0, normal_masks_path)
                     writer.writerow(features)
                     normal_progress.update(1)
 
                 # Extract features from the cov images in parallel
-                cov_progress = tqdm.tqdm(total=total_cov, desc='Extracting features from cov images')
+                cov_progress = tqdm.tqdm(total=self.cov_lenght, desc='Extracting features from cov images')
                 for img in self.cov_images:
-                    features = self.extract_from_image(img, 1)
+                    features = self.__extract_from_image(img, 1, cov_masks_path)
                     writer.writerow(features)
                     cov_progress.update(1)
 

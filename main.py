@@ -22,6 +22,8 @@ class Main:
         pp = Preprocessing(img_input_size=input_size, img_target_size=target_size)
         covid_artifact = None
         normal_artifact = None
+        covid_masks_artifact = None
+        normal_masks_artifact = None
 
         def upload_base_dataset():
             # Upload the dataset artifacts
@@ -48,7 +50,7 @@ class Main:
         def processing():
             # Load the dataset artifacts if they are not already loaded
             nonlocal covid_artifact, normal_artifact
-            if covid_artifact is None or normal_artifact is None:
+            if not covid_artifact or not normal_artifact:
                 covid_artifact, normal_artifact = load_dataset_artifacts()
 
             # Load the masks artifacts
@@ -62,20 +64,29 @@ class Main:
             self.wdb.upload_dataset_artifact(CovidProcessedDataset())
             self.wdb.upload_dataset_artifact(NormalProcessedDataset())
 
-        def generate_hist_and_characteristics():
+        def extract_characteristics():
+            nonlocal covid_masks_artifact, normal_masks_artifact
             # Load the processed datasets as artifacts
             covid_processed_artifact = self.wdb.load_dataset_artifact(CovidProcessedDataset())
             normal_processed_artifact = self.wdb.load_dataset_artifact(NormalProcessedDataset())
 
+            # Load the masks artifacts for radiomics
+            if not covid_masks_artifact:
+                covid_masks_artifact = self.wdb.load_dataset_artifact(CovidMaskDataset())
+            if not normal_masks_artifact:
+                normal_masks_artifact = self.wdb.load_dataset_artifact(NormalMaskDataset())
+
             self.wdb.log_histogram_chart_comparison(target_size)
 
             # Generate characteristics file
-            pp.generate_characteristics(covid_processed_artifact, normal_processed_artifact)
+            pp.generate_characteristics(
+                covid_processed_artifact, normal_processed_artifact,
+                covid_masks_artifact, normal_masks_artifact)
 
             # Upload characteristics
             self.wdb.upload_characteristics()
 
-        steps = [upload_base_dataset, generate_mask_dataset, processing, generate_hist_and_characteristics]
+        steps = [upload_base_dataset, generate_mask_dataset, processing, extract_characteristics]
 
         if skip_to_step is not None:
             steps = steps[skip_to_step-1:]

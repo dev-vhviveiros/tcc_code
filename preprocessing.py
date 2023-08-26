@@ -77,7 +77,8 @@ class Preprocessing:
         ImageSaver(cov_processed).save_to(cov_save_path)
         ImageSaver(normal_processed).save_to(normal_save_path)
 
-    def generate_characteristics(self, cov_processed_artifact, normal_processed_artifact):
+    def generate_characteristics(self,
+                                 cov_processed_artifact, normal_processed_artifact, cov_masks_artifact, normal_masks_artifact):
         """
         Generate image characteristics for the processed COVID and normal chest X-ray images.
 
@@ -89,4 +90,4 @@ class Preprocessing:
             None
         """
         ic = ImageCharacteristics(cov_processed_artifact, normal_processed_artifact, self.img_target_size)
-        ic.save(self.characteristics.path)
+        ic.save(self.characteristics.path, cov_masks_artifact, normal_masks_artifact)
