@@ -8,7 +8,7 @@ from kerastuner.oracles import BayesianOptimizationOracle
 
 
 class Main:
-    def __init__(self, wdb_tags, dataset_alias) -> None:
+    def __init__(self, wdb_tags: list(), dataset_alias) -> None:
         # Check the availability of gpu
         gpus = tf.config.list_physical_devices('GPU')
         if not gpus:
@@ -101,9 +101,6 @@ class Main:
         characteristics_artifact = self.wdb.load_characteristics()
         classifier = Classifier(characteristics_artifact=characteristics_artifact, num_samples=num_samples)
 
-        k_best = classifier.eval_features()
-        self.wdb.log({'k_best selected_features': k_best.tolist()})
-
         metrics = ['accuracy',
                    tf.keras.metrics.Precision(),
                    tf.keras.metrics.Recall(),
@@ -145,7 +142,7 @@ class Main:
 
 
 # RUN
-main = Main("cnn_test", "baffa_dataset")
+main = Main(["cnn_test"], "prebuilt_binary_features")
 try:
     # main.preprocessing(input_size=(512, 512, 1), target_size=(512, 512), skip_to_step=4)
     main.tuning(1490)

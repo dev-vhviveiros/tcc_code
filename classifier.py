@@ -62,28 +62,28 @@ class Classifier:
         characteristics_df = pd.read_csv(characteristics_artifact)
         print("SHAPE:" + str(characteristics_df.shape))
 
+        # Group the DataFrame by the label column
+        grouped = characteristics_df.groupby(characteristics_df.columns[-1])
+
+        # Create a new DataFrame with the first <num_samples> elements from each group
+        characteristics_df = pd.concat([group.iloc[:num_samples] for _, group in grouped])
+
         # Extract the input data (image characteristics) and output data (labels)
-        image_characteristics = characteristics_df.iloc[:, :219].values
-        labels = characteristics_df.iloc[:, 219].values
+        image_characteristics = characteristics_df.iloc[:, :-1].values
+        labels = characteristics_df.iloc[:, -1].values
 
-        # Select the first num_samples samples for each label
-        selected_indices = []
-        for label in np.unique(labels):
-            label_indices = np.where(labels == label)[0]
-            selected_indices.extend(label_indices[:num_samples])
+        # Normalize the data using the MinMaxScaler function
+        scaler = MinMaxScaler(feature_range=(0, 1))
+        normalized_characteristics = scaler.fit_transform(image_characteristics)
 
-        # Use the selected indices to extract the input data and output data
-        image_characteristics = image_characteristics[selected_indices]
-        labels = labels[selected_indices]
+        # Select KBest features
+        kbest = SelectKBest(chi2, k=100)
+        kbest.fit(normalized_characteristics, labels)
+        kbest_characteristics = kbest.transform(normalized_characteristics)
 
         # Split the data into training and testing sets
-        training_image_characteristics, testing_image_characteristics, self.train_labels, self.val_labels = train_test_split(
-            image_characteristics, labels, test_size=test_size, random_state=0)
-
-        # Normalize the data using the StandardScaler function
-        scaler = MinMaxScaler(feature_range=(0, 1))
-        self.norm_train_characteristics = scaler.fit_transform(training_image_characteristics)
-        self.norm_val_characteristics = scaler.transform(testing_image_characteristics)
+        self.norm_train_characteristics, self.norm_val_characteristics, self.train_labels, self.val_labels = train_test_split(
+            kbest_characteristics, labels, test_size=test_size, random_state=0)
 
     @staticmethod
     def custom_specificity(y_true, y_pred):
@@ -126,14 +126,6 @@ class Classifier:
         sensitivity = tp / (tp + fn + K.epsilon())
 
         return sensitivity
-
-    def eval_features(self, k=100):
-        # Select the top k features using the chi-squared test
-        kbest = SelectKBest(chi2, k=k)
-        kbest.fit(self.norm_train_characteristics, self.train_labels)
-        self.norm_train_characteristics = kbest.transform(self.norm_train_characteristics)
-        self.norm_val_characteristics = kbest.transform(self.norm_val_characteristics)
-        return kbest.get_support(1)
 
     def plot_confusion_matrix(self, title: str, cmap=None, normalize: bool = False, save_dir: str = None):
         """
@@ -247,3 +239,6 @@ class Classifier:
                      epochs=epochs, objective=objective,
                      validation_data=(self.norm_val_characteristics, self.val_labels),
                      wandb_utils=wandb_utils)
+
+    def test(self):
+        print("A")
