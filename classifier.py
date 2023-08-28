@@ -3,9 +3,10 @@ import itertools
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn.feature_selection import SelectKBest, chi2
 from sklearn.model_selection import train_test_split
 import tensorflow.keras.backend as K
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 
 from tuner import CustomTuner
 from utils import load_config
@@ -80,7 +81,7 @@ class Classifier:
             image_characteristics, labels, test_size=test_size, random_state=0)
 
         # Normalize the data using the StandardScaler function
-        scaler = StandardScaler()
+        scaler = MinMaxScaler(feature_range=(0, 1))
         self.norm_train_characteristics = scaler.fit_transform(training_image_characteristics)
         self.norm_val_characteristics = scaler.transform(testing_image_characteristics)
 
@@ -126,36 +127,13 @@ class Classifier:
 
         return sensitivity
 
-    def tune(self, hypermodel, oracle, epochs: int, objective: str, batch_size_callout, wandb_utils):
-        """
-        Uses a custom tuner to search for the best hyperparameters for a given hypermodel.
-
-        Args:
-            hypermodel (keras_tuner.HyperModel): The hypermodel to tune.
-            oracle (keras_tuner.Oracle): The oracle to use for the search.
-            epochs (int): The number of epochs to train the model for during each trial.
-            objective (str): The name of the metric to optimize during the search.
-            batch_size_callout (Callable): A function that returns the batch size for each trial.
-
-        Returns:
-            None
-        """
-        # Create a custom tuner with the given hypermodel, oracle, and batch size callout function
-        tuner = CustomTuner(
-            batch_size_callout=batch_size_callout,
-            hypermodel=hypermodel,
-            executions_per_trial=2,
-            directory='tuner',
-            overwrite=True,
-            oracle=oracle
-        )
-
-        # Search for the best hyperparameters using the custom tuner
-        tuner.search(self.norm_train_characteristics,
-                     self.train_labels,
-                     epochs=epochs, objective=objective,
-                     validation_data=(self.norm_val_characteristics, self.val_labels),
-                     wandb_utils=wandb_utils)
+    def eval_features(self, k=100):
+        # Select the top k features using the chi-squared test
+        kbest = SelectKBest(chi2, k=k)
+        kbest.fit(self.norm_train_characteristics, self.train_labels)
+        self.norm_train_characteristics = kbest.transform(self.norm_train_characteristics)
+        self.norm_val_characteristics = kbest.transform(self.norm_val_characteristics)
+        return kbest.get_support(1)
 
     def plot_confusion_matrix(self, title: str, cmap=None, normalize: bool = False, save_dir: str = None):
         """
@@ -238,3 +216,34 @@ class Classifier:
         # Print the predicted classes and return them
         print(predicted_classes)
         return predicted_classes
+
+    def tune(self, hypermodel, oracle, epochs: int, objective: str, batch_size_callout, wandb_utils):
+        """
+        Uses a custom tuner to search for the best hyperparameters for a given hypermodel.
+
+        Args:
+            hypermodel (keras_tuner.HyperModel): The hypermodel to tune.
+            oracle (keras_tuner.Oracle): The oracle to use for the search.
+            epochs (int): The number of epochs to train the model for during each trial.
+            objective (str): The name of the metric to optimize during the search.
+            batch_size_callout (Callable): A function that returns the batch size for each trial.
+
+        Returns:
+            None
+        """
+        # Create a custom tuner with the given hypermodel, oracle, and batch size callout function
+        tuner = CustomTuner(
+            batch_size_callout=batch_size_callout,
+            hypermodel=hypermodel,
+            executions_per_trial=2,
+            directory='tuner',
+            overwrite=True,
+            oracle=oracle
+        )
+
+        # Search for the best hyperparameters using the custom tuner
+        tuner.search(self.norm_train_characteristics,
+                     self.train_labels,
+                     epochs=epochs, objective=objective,
+                     validation_data=(self.norm_val_characteristics, self.val_labels),
+                     wandb_utils=wandb_utils)

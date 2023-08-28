@@ -14,6 +14,7 @@ WB_JOB_HISTOGRAM_CHART = "log_histogram_chart"
 WB_JOB_LOAD_ARTIFACTS = "load_artifacts"
 WB_JOB_MODEL_FIT = "model_fit"
 WB_JOB_LOG_TRAINING_DATA = "log_training_data"
+WB_JOB_LOG = "log"
 
 
 class WandbUtils:
@@ -153,6 +154,23 @@ class WandbUtils:
         """
         # Return a string in the format 'project_path/artifact_model_tag:wdb_data_alias'.
         return '%s/%s:%s' % (self.project_path, tag, self.artifact_alias)
+
+    def log(self, data: dict[str, object]):
+        """
+        Logs the given data as a metric to the current Weights & Biases (wandb) run.
+
+        Args:
+            data (dict[str, object]): A dictionary of key-value pairs to log as data.
+
+        Returns:
+            None
+        """
+        def callback(run):
+            # Log the data to the current wandb run
+            run.log(data)
+
+        # Run the callback function
+        self.run_job(callback, WB_JOB_LOG)
 
     def log_table(self):
         """

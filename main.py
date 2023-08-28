@@ -101,6 +101,9 @@ class Main:
         characteristics_artifact = self.wdb.load_characteristics()
         classifier = Classifier(characteristics_artifact=characteristics_artifact, num_samples=num_samples)
 
+        k_best = classifier.eval_features()
+        self.wdb.log({'k_best selected_features': k_best.tolist()})
+
         metrics = ['accuracy',
                    tf.keras.metrics.Precision(),
                    tf.keras.metrics.Recall(),
