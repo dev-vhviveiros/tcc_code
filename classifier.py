@@ -88,8 +88,8 @@ class Classifier:
         norm_train_characteristics, norm_val_characteristics, train_labels, val_labels = train_test_split(
             kbest_characteristics, labels, test_size=test_size)
 
-        self.norm_train_characteristics = to_categorical(norm_train_characteristics, 3)
-        self.norm_val_characteristics = to_categorical(norm_val_characteristics, 3)
+        self.norm_train_characteristics = norm_train_characteristics
+        self.norm_val_characteristics = norm_val_characteristics
         self.train_labels = to_categorical(train_labels, 3)
         self.val_labels = to_categorical(val_labels, 3)
         return num_samples

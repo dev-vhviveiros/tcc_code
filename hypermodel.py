@@ -9,7 +9,7 @@ class CustomHyperModel(HyperModel):
     A custom hypermodel subclassed from `HyperModel` that defines the architecture of the neural network.
     """
 
-    def __init__(self, optimizer_callout, activation_callout, activation_output_callout, dropout_callout, loss_callout, learning_rate_callout, dense_layers_callout, filters_callout, kernel_size_callout, pool_size_callout, conv_layers_callout, units_callout, metrics=["accuracy"]):
+    def __init__(self, optimizer_callout, activation_callout, activation_output_callout, dropout_callout, loss_callout, learning_rate_callout, dense_layers_callout, filters_callout, kernel_size_callout, pool_size_callout, conv_layers_callout, units_callout, use_same_units_callout, metrics=["accuracy"]):
         """
         Initializes a new instance of the CustomHyperModel class.
 
@@ -38,6 +38,7 @@ class CustomHyperModel(HyperModel):
         self.kernel_size_callout = kernel_size_callout
         self.pool_size_callout = pool_size_callout
         self.units_callout = units_callout
+        self.use_same_units_callout = use_same_units_callout
         self.metrics = metrics
 
     def build(self, hp):
@@ -63,6 +64,7 @@ class CustomHyperModel(HyperModel):
         pool_size_hp = self.pool_size_callout(hp)
         conv_layers_hp = self.conv_layers_callout(hp)
         units_hp = self.units_callout(hp)
+        use_same_units_hp = self.use_same_units_callout(hp)
 
         # Get the optimizer
         optimizer = self.get_optimizer(optimizer_hp, learning_rate_hp)
@@ -88,8 +90,10 @@ class CustomHyperModel(HyperModel):
 
         # Add the specified number of dense layers to the model
         for i in range(0, dense_layers_hp):
-            layer_units = units_hp / (divisor ** i)
-            layer_units = max(2, round(layer_units))  # Adjust the layer_units to be at least 2
+            layer_units = units_hp
+            if not use_same_units_hp:  # Use or not different values for each layer
+                layer_units = units_hp / (divisor ** i)
+                layer_units = max(2, round(layer_units))  # Adjust the layer_units to be at least 2
             if layer_units < 2:
                 break
             model.add(Dense(units=layer_units, activation=activation_hp))
