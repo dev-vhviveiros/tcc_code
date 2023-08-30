@@ -97,11 +97,11 @@ class Main:
             step()
         return self
 
-    def tuning(self, num_samples):
+    def tuning(self):
         characteristics_artifact = self.wdb.load_characteristics()
-        classifier = Classifier(characteristics_artifact=characteristics_artifact, num_samples=num_samples)
+        classifier = Classifier(characteristics_artifact=characteristics_artifact)
 
-        metrics = ['accuracy',
+        metrics = [tf.keras.metrics.CategoricalAccuracy(),
                    tf.keras.metrics.Precision(),
                    tf.keras.metrics.Recall(),
                    tf.keras.metrics.AUC(),
@@ -112,39 +112,39 @@ class Main:
             metrics=metrics,
             optimizer_callout=lambda hp: hp.Choice("optimizer", values=["sgd", "adam", "rmsprop"]),
             activation_callout=lambda hp: hp.Choice(
-                "activation", values=['relu', 'elu', 'selu', 'sigmoid']),
+                "activation", values=['relu']),
             activation_output_callout=lambda hp: hp.Choice(
-                "activation_output", values=['sigmoid']),
+                "activation_output", values=['softmax']),
             loss_callout=lambda hp: hp.Choice(
-                "loss", values=['mean_squared_error', 'kl_divergence', 'poisson', 'binary_crossentropy']),
+                "loss", values=['categorical_crossentropy']),
             dropout_callout=lambda hp: hp.Float("dropout", min_value=0.1, max_value=0.3, step=0.05),
             learning_rate_callout=lambda hp: hp.Float("learning_rate", min_value=1e-6, max_value=1e-2, step=1e-4),
             dense_layers_callout=lambda hp: hp.Int("num_layers", min_value=1, max_value=20, step=1),
             filters_callout=lambda hp: hp.Int("filters", min_value=8, max_value=64, step=8),
             kernel_size_callout=lambda hp: hp.Int("kernel_size", min_value=3, max_value=5, step=2),
             pool_size_callout=lambda hp: hp.Int("pool_size", min_value=2, max_value=4, step=1),
-            conv_layers_callout=lambda hp: hp.Int("conv_layers", min_value=1, max_value=8, step=1),
-            units_callout=lambda hp: hp.Int("units", min_value=32, max_value=1024, step=16),
+            conv_layers_callout=lambda hp: hp.Int("conv_layers", min_value=1, max_value=4, step=1),
+            units_callout=lambda hp: hp.Int("units", min_value=32, max_value=500, step=16),
         )
 
-        objective = 'val_accuracy'
+        objective = 'val_categorical_accuracy'
 
         oracle = BayesianOptimizationOracle(
             objective=objective,
-            max_trials=500
+            max_trials=700
         )
 
         def batch_size_callout(hp): return hp.Int("batch_size", min_value=8, max_value=256, step=4)
-        classifier.tune(hypermodel, oracle, 3000, objective, batch_size_callout, self.wdb)
+        classifier.tune(hypermodel, oracle, 50, objective, batch_size_callout, self.wdb)
         return self
 
     def finish(self): self.wdb.finish()
 
 
 # RUN
-main = Main(["cnn_test"], "prebuilt_binary_features")
+main = Main(["cnn_multi_run"], "prebuilt_multiclass_features")
 try:
     # main.preprocessing(input_size=(512, 512, 1), target_size=(512, 512), skip_to_step=4)
-    main.tuning(1490)
+    main.tuning()
 finally:
     main.finish()

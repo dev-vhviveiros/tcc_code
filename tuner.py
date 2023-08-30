@@ -3,7 +3,7 @@ import wandb
 from wandb.keras import WandbCallback
 from tensorflow.keras.callbacks import EarlyStopping
 import numpy as np
-
+from hypermodel import HyperModel
 from wandb_utils import WandbUtils
 
 
@@ -43,7 +43,7 @@ class CustomTuner(kt.Tuner):
 
         try:
             # Create the model with the current trial hyperparameters
-            model = self.hypermodel.build(hp)
+            model: HyperModel = self.hypermodel.build(hp)
 
             # Get the batch size for the current trial hyperparameters
             batch_size = self.batch_size_callout(hp)
@@ -57,19 +57,19 @@ class CustomTuner(kt.Tuner):
             total_samples = num_train_samples + num_val_samples
             print(f"Trial {trial.trial_id}: Total samples: {total_samples}")
 
-            # Reshape the input data to add a new axis
-            trainx_reshaped = trainX[..., np.newaxis]
-            validationx_reshaped = validation_data[0][..., np.newaxis]
+            # # Reshape the input data to add a new axis
+            # trainx_reshaped = trainX[..., np.newaxis]
+            # validationx_reshaped = validation_data[0][..., np.newaxis]
 
             # Initiates new run for each trial on the dashboard of Weights & Biases
             with wandb.init(project="tcc_code", config={**hp.values}, group="trial", tags=wandb_utils.wdb_tags) as run:
                 # Use WandbCallback() to log all the metric data such as loss, accuracy, etc. on the Weights & Biases dashboard for visualization
-                early_stop = EarlyStopping(monitor='val_accuracy', patience=50, restore_best_weights=True, mode="max")
-                history = model.fit(trainx_reshaped,
+                early_stop = EarlyStopping(monitor=objective, patience=20, restore_best_weights=True, mode="max")
+                history = model.fit(trainX,
                                     trainY,
                                     batch_size=batch_size,
                                     epochs=epochs,
-                                    validation_data=(validationx_reshaped, validation_data[1]),
+                                    validation_data=(validation_data[0], validation_data[1]),
                                     workers=6,
                                     use_multiprocessing=True,
                                     callbacks=[early_stop, WandbCallback(save_model=False, monitor=objective, mode='max')])

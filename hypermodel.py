@@ -78,8 +78,8 @@ class CustomHyperModel(HyperModel):
                                  activation=activation_hp))
                 model.add(MaxPooling1D(pool_size=pool_size_hp))
 
-        # Add a Flatten layer to convert the output of the convolutional layers to a 1D tensor
-        model.add(Flatten())
+            # Add a Flatten layer to convert the output of the convolutional layers to a 1D tensor
+            model.add(Flatten())
 
         # Calculate the minimum divisor to ensure the number of units in each dense layer is greater than 2
         divisor = 2.0
@@ -96,7 +96,7 @@ class CustomHyperModel(HyperModel):
             model.add(Dropout(rate=dropout_hp))
 
         # Add an output layer with a single unit and the specified activation function
-        model.add(Dense(units=1, activation=activation_output_hp))
+        model.add(Dense(units=3, activation=activation_output_hp))
 
         # Compile the model with the given optimizer, loss function, and metrics
         model.compile(optimizer=optimizer, loss=loss_hp, metrics=self.metrics)

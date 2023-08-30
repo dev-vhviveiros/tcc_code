@@ -7,6 +7,7 @@ from sklearn.feature_selection import SelectKBest, chi2
 from sklearn.model_selection import train_test_split
 import tensorflow.keras.backend as K
 from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras.utils import to_categorical
 
 from tuner import CustomTuner
 from utils import load_config
@@ -19,7 +20,7 @@ class Classifier:
     import_model = if you saved a model and want to import it
     """
 
-    def __init__(self, num_samples, characteristics_artifact: str = None, model_artifact: str = None):
+    def __init__(self, characteristics_artifact: str = None, model_artifact: str = None):
         """
         Initializes the Classifier object.
 
@@ -27,15 +28,14 @@ class Classifier:
             characteristics_artifact (str, optional): The characteristics artifact. Defaults to None.
             model_artifact (str, optional): The model artifact. Defaults to None.
         """
-        # Define the number of samples that will be used
-        self.num_samples = num_samples
-
         # Load the WandB project name from the configuration file
         self.wdb_project = load_config("wb_project_name")
 
+        num_samples = -1
+
         # Load the characteristics artifact if provided
         if characteristics_artifact is not None:
-            self.__load_characteristics(characteristics_artifact, num_samples)
+            num_samples = self.__load_characteristics(characteristics_artifact)
 
         # Load the model artifact if provided
         if model_artifact is not None:
@@ -44,10 +44,10 @@ class Classifier:
         # Print a message indicating the project and artifacts being used
         print(f"Initializing classifier project: {self.wdb_project} with:\n"
               f"Characteristics: {characteristics_artifact}\n"
-              f"Model: {model_artifact}\n"
+              f"Model: {model_artifact}\n",
               f"Number of samples per label: {num_samples}")
 
-    def __load_characteristics(self, characteristics_artifact, num_samples, test_size=0.2):
+    def __load_characteristics(self, characteristics_artifact, test_size=0.2):
         """
         Loads the image characteristics and labels from a CSV file, splits the data into training and testing sets, and normalizes the image characteristics using the StandardScaler function.
 
@@ -64,6 +64,9 @@ class Classifier:
 
         # Group the DataFrame by the label column
         grouped = characteristics_df.groupby(characteristics_df.columns[-1])
+
+        # Define the num_samples based on the label with less samples
+        num_samples = min([len(group) for _, group in grouped])
 
         # Create a new DataFrame with the first <num_samples> elements from each group
         characteristics_df = pd.concat([group.iloc[:num_samples] for _, group in grouped])
@@ -82,8 +85,14 @@ class Classifier:
         kbest_characteristics = kbest.transform(normalized_characteristics)
 
         # Split the data into training and testing sets
-        self.norm_train_characteristics, self.norm_val_characteristics, self.train_labels, self.val_labels = train_test_split(
-            kbest_characteristics, labels, test_size=test_size, random_state=0)
+        norm_train_characteristics, norm_val_characteristics, train_labels, val_labels = train_test_split(
+            kbest_characteristics, labels, test_size=test_size)
+
+        self.norm_train_characteristics = to_categorical(norm_train_characteristics, 3)
+        self.norm_val_characteristics = to_categorical(norm_val_characteristics, 3)
+        self.train_labels = to_categorical(train_labels, 3)
+        self.val_labels = to_categorical(val_labels, 3)
+        return num_samples
 
     @staticmethod
     def custom_specificity(y_true, y_pred):
@@ -239,6 +248,3 @@ class Classifier:
                      epochs=epochs, objective=objective,
                      validation_data=(self.norm_val_characteristics, self.val_labels),
                      wandb_utils=wandb_utils)
-
-    def test(self):
-        print("A")
