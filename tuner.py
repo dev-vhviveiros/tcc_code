@@ -73,11 +73,28 @@ class CustomTuner(kt.Tuner):
                                     workers=6,
                                     use_multiprocessing=True,
                                     callbacks=[early_stop, WandbCallback(save_model=False, monitor=objective, mode='max')])
-                # Get the validation objective of the best epoch model which is fully trained
-                objective_value = max(history.history[objective])
+
+                def get_metric_value(metric_name, direction):
+                    values = history.history[metric_name]
+                    return max(values) if direction == 'max' else min(values)
+
+                # Define metrics along with their optimization directions
+                metrics = [
+                    ('val_categorical_accuracy', 'max'),
+                    ('val_precision', 'max'),
+                    ('val_recall', 'max'),
+                    ('val_auc', 'max'),
+                    ('val_custom_sensitivity', 'max'),
+                    ('val_custom_specificity', 'max'),
+                    ('val_loss', 'min')
+                ]
+
+                # Create a dictionary to hold the metric values for the best epoch
+                metric_values = {metric_name: get_metric_value(metric_name, direction)
+                                 for metric_name, direction in metrics}
 
                 # Send the objective data to the oracle for comparison of hyperparameters
-                self.oracle.update_trial(trial.trial_id, {objective: objective_value})
+                self.oracle.update_trial(trial.trial_id, metric_values)
 
         except Exception as e:
             print(e)
