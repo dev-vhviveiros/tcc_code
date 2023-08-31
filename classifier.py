@@ -4,10 +4,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from sklearn.feature_selection import SelectKBest, chi2
-from sklearn.model_selection import train_test_split
 import tensorflow.keras.backend as K
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.utils import to_categorical
+
 
 from tuner import CustomTuner
 from utils import load_config
@@ -47,7 +46,7 @@ class Classifier:
               f"Model: {model_artifact}\n",
               f"Number of samples per label: {num_samples}")
 
-    def __load_characteristics(self, characteristics_artifact, test_size=0.2):
+    def __load_characteristics(self, characteristics_artifact):
         """
         Loads the image characteristics and labels from a CSV file, splits the data into training and testing sets, and normalizes the image characteristics using the StandardScaler function.
 
@@ -73,7 +72,7 @@ class Classifier:
 
         # Extract the input data (image characteristics) and output data (labels)
         image_characteristics = characteristics_df.iloc[:, :-1].values
-        labels = characteristics_df.iloc[:, -1].values
+        self.labels = characteristics_df.iloc[:, -1].values
 
         # Normalize the data using the MinMaxScaler function
         scaler = MinMaxScaler(feature_range=(0, 1))
@@ -81,17 +80,8 @@ class Classifier:
 
         # Select KBest features
         kbest = SelectKBest(chi2, k=100)
-        kbest.fit(normalized_characteristics, labels)
-        kbest_characteristics = kbest.transform(normalized_characteristics)
-
-        # Split the data into training and testing sets
-        norm_train_characteristics, norm_val_characteristics, train_labels, val_labels = train_test_split(
-            kbest_characteristics, labels, test_size=test_size)
-
-        self.norm_train_characteristics = norm_train_characteristics
-        self.norm_val_characteristics = norm_val_characteristics
-        self.train_labels = to_categorical(train_labels, 3)
-        self.val_labels = to_categorical(val_labels, 3)
+        kbest.fit(normalized_characteristics, self.labels)
+        self.features = kbest.transform(normalized_characteristics)
         return num_samples
 
     @staticmethod
@@ -243,8 +233,5 @@ class Classifier:
         )
 
         # Search for the best hyperparameters using the custom tuner
-        tuner.search(self.norm_train_characteristics,
-                     self.train_labels,
-                     epochs=epochs, objective=objective,
-                     validation_data=(self.norm_val_characteristics, self.val_labels),
-                     wandb_utils=wandb_utils)
+        tuner.search(self.features, self.labels, epochs=epochs, objective=objective,
+                     validation_split=0.2, wandb_utils=wandb_utils)

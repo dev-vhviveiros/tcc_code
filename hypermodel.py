@@ -99,8 +99,9 @@ class CustomHyperModel(HyperModel):
             model.add(Dense(units=layer_units, activation=activation_hp))
             model.add(Dropout(rate=dropout_hp))
 
-        # Add an output layer with a single unit and the specified activation function
-        model.add(Dense(units=3, activation=activation_output_hp))
+        # Add the output layer
+        units = 3 if activation_output_hp == 'softmax' else 1
+        model.add(Dense(units=units, activation=activation_output_hp))
 
         # Compile the model with the given optimizer, loss function, and metrics
         model.compile(optimizer=optimizer, loss=loss_hp, metrics=self.metrics)

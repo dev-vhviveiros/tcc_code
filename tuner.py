@@ -5,6 +5,7 @@ from tensorflow.keras.callbacks import EarlyStopping
 import numpy as np
 from hypermodel import HyperModel
 from wandb_utils import WandbUtils
+from tensorflow.keras.utils import to_categorical
 
 
 class CustomTuner(kt.Tuner):
@@ -24,7 +25,7 @@ class CustomTuner(kt.Tuner):
         self.batch_size_callout = batch_size_callout
         super().__init__(*args, **kwargs)
 
-    def run_trial(self, trial, trainX, trainY, epochs, objective, validation_data, wandb_utils: WandbUtils):
+    def run_trial(self, trial, x, y, epochs, objective, validation_split, wandb_utils: WandbUtils):
         """
         Runs a single trial with the given hyperparameters.
 
@@ -42,6 +43,9 @@ class CustomTuner(kt.Tuner):
         hp = trial.hyperparameters
 
         try:
+            if objective == 'val_categorical_accuracy':
+                y = to_categorical(y, 3)
+
             # Create the model with the current trial hyperparameters
             model: HyperModel = self.hypermodel.build(hp)
 
@@ -49,30 +53,30 @@ class CustomTuner(kt.Tuner):
             batch_size = self.batch_size_callout(hp)
 
             # Print the number of training and validation samples
-            num_train_samples = len(trainX)
-            num_val_samples = len(validation_data[0])
-            print(f"Trial {trial.trial_id}: Training on {num_train_samples} samples, validating on {num_val_samples} samples")
+            num_samples = len(x)
+            print(f"Trial {trial.trial_id}: Training on {num_samples * (1 - validation_split)} samples, validating on ~{validation_split * num_samples} samples, with {validation_split} validation_split")
 
             # Print the sum of training and validation samples
-            total_samples = num_train_samples + num_val_samples
-            print(f"Trial {trial.trial_id}: Total samples: {total_samples}")
+            print(f"Trial {trial.trial_id}: Total samples: {num_samples}")
 
             # # Reshape the input data to add a new axis
-            trainx_reshaped = trainX[..., np.newaxis]
-            validationx_reshaped = validation_data[0][..., np.newaxis]
+            x_reshaped = x[..., np.newaxis]
 
             # Initiates new run for each trial on the dashboard of Weights & Biases
             with wandb.init(project="tcc_code", config={**hp.values}, group="trial", tags=wandb_utils.wdb_tags) as run:
                 # Use WandbCallback() to log all the metric data such as loss, accuracy, etc. on the Weights & Biases dashboard for visualization
                 early_stop = EarlyStopping(monitor=objective, patience=200, restore_best_weights=True, mode="max")
-                history = model.fit(trainx_reshaped,
-                                    trainY,
+                history = model.fit(x_reshaped, y,
                                     batch_size=batch_size,
                                     epochs=epochs,
-                                    validation_data=(validationx_reshaped, validation_data[1]),
+                                    validation_split=validation_split,
                                     workers=6,
                                     use_multiprocessing=True,
-                                    callbacks=[early_stop, WandbCallback(save_model=False, monitor=objective, mode='max')])
+                                    callbacks=[early_stop, WandbCallback(
+                                        save_model=False,
+                                        monitor=objective,
+                                        mode='max'
+                                    )])
 
                 def get_metric_value(metric_name, direction):
                     values = history.history[metric_name]
@@ -80,7 +84,7 @@ class CustomTuner(kt.Tuner):
 
                 # Define metrics along with their optimization directions
                 metrics = [
-                    ('val_categorical_accuracy', 'max'),
+                    (objective, 'max'),
                     ('val_precision', 'max'),
                     ('val_recall', 'max'),
                     ('val_auc', 'max'),

@@ -8,14 +8,16 @@ from kerastuner.oracles import BayesianOptimizationOracle
 
 
 class Main:
-    def __init__(self, wdb_tags: list(), dataset_alias) -> None:
+    def __init__(self, wdb_tags: list(), is_categorical=True) -> None:
         # Check the availability of gpu
         gpus = tf.config.list_physical_devices('GPU')
         if not gpus:
             raise RuntimeError("No GPUs available")
         tf.config.experimental.set_memory_growth(gpus[0], True)
         # Initialize the WandbUtils class and start a new run
+        dataset_alias = "prebuilt_multiclass_features" if is_categorical else "prebuilt_binary_features"
         self.wdb = WandbUtils(wdb_tags, dataset_alias)
+        self.is_categorical = is_categorical
 
     def preprocessing(self, input_size, target_size, skip_to_step=None):
         # Initialize the Preprocessing class
@@ -101,7 +103,18 @@ class Main:
         characteristics_artifact = self.wdb.load_characteristics()
         classifier = Classifier(characteristics_artifact=characteristics_artifact)
 
-        metrics = [tf.keras.metrics.CategoricalAccuracy(),
+        if self.is_categorical:
+            accuracy = tf.keras.metrics.CategoricalAccuracy()
+            objective = 'val_categorical_accuracy'
+            output_activation = ['softmax']
+            loss = ['categorical_crossentropy']
+        else:
+            accuracy = tf.keras.metrics.BinaryAccuracy()
+            objective = 'val_binary_accuracy'
+            output_activation = ['sigmoid']
+            loss = ['binary_crossentropy']
+
+        metrics = [accuracy,
                    tf.keras.metrics.Precision(),
                    tf.keras.metrics.Recall(),
                    tf.keras.metrics.AUC(),
@@ -111,12 +124,9 @@ class Main:
         hypermodel = CustomHyperModel(
             metrics=metrics,
             optimizer_callout=lambda hp: hp.Choice("optimizer", values=["adam", "sgd", "rmsprop"]),
-            activation_callout=lambda hp: hp.Choice(
-                "activation", values=['relu', 'elu', 'selu']),
-            activation_output_callout=lambda hp: hp.Choice(
-                "activation_output", values=['softmax']),
-            loss_callout=lambda hp: hp.Choice(
-                "loss", values=['categorical_crossentropy']),
+            activation_callout=lambda hp: hp.Choice("activation", values=['relu', 'elu', 'selu']),
+            activation_output_callout=lambda hp: hp.Choice("activation_output", output_activation),
+            loss_callout=lambda hp: hp.Choice("loss", values=loss),
             dropout_callout=lambda hp: hp.Float("dropout", min_value=0.1, max_value=0.3, step=0.05),
             learning_rate_callout=lambda hp: hp.Float("learning_rate", min_value=1e-6, max_value=1e-2, step=1e-4),
             dense_layers_callout=lambda hp: hp.Int("num_layers", min_value=4, max_value=20, step=1),
@@ -127,8 +137,6 @@ class Main:
             units_callout=lambda hp: hp.Int("units", min_value=32, max_value=500, step=16),
             use_same_units_callout=lambda hp: hp.Boolean("use_same_units")
         )
-
-        objective = 'val_categorical_accuracy'
 
         oracle = BayesianOptimizationOracle(
             objective=objective,
@@ -143,7 +151,7 @@ class Main:
 
 
 # RUN
-main = Main(["cnn_multi_run"], "prebuilt_multiclass_features")
+main = Main(["cnn_multi_test"], is_categorical=True)
 try:
     # main.preprocessing(input_size=(512, 512, 1), target_size=(512, 512), skip_to_step=4)
     main.tuning()
