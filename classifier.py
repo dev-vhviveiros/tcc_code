@@ -126,6 +126,32 @@ class Classifier:
 
         return sensitivity
 
+    @staticmethod
+    def f1_score(y_true, y_pred):
+        """
+        Calculates the F1-score of a binary classification model.
+
+        Args:
+            y_true (tensor): The true labels.
+            y_pred (tensor): The predicted labels.
+
+        Returns:
+            float: The F1-score of the model.
+        """
+        # Calculate the true positives, false positives, and false negatives using Keras backend functions
+        tp = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+        fp = K.sum(K.round(K.clip((1 - y_true) * y_pred, 0, 1)))
+        fn = K.sum(K.round(K.clip(y_true * (1 - y_pred), 0, 1)))
+
+        # Calculate the precision and recall using the true positives, false positives, and false negatives
+        precision = tp / (tp + fp + K.epsilon())
+        recall = tp / (tp + fn + K.epsilon())
+
+        # Calculate the F1-score as the harmonic mean of precision and recall
+        f1_score = 2 * (precision * recall) / (precision + recall + K.epsilon())
+
+        return f1_score
+
     def plot_confusion_matrix(self, title: str, cmap=None, normalize: bool = False, save_dir: str = None):
         """
         Plots a confusion matrix for the model's predictions on the testing set.

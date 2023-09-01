@@ -8,7 +8,7 @@ from kerastuner.oracles import BayesianOptimizationOracle
 
 
 class Main:
-    def __init__(self, wdb_tags: list(), is_categorical=True) -> None:
+    def __init__(self, wdb_tags: list(), is_categorical) -> None:
         # Check the availability of gpu
         gpus = tf.config.list_physical_devices('GPU')
         if not gpus:
@@ -118,6 +118,7 @@ class Main:
                    tf.keras.metrics.Precision(),
                    tf.keras.metrics.Recall(),
                    tf.keras.metrics.AUC(),
+                   Classifier.f1_score,
                    Classifier.custom_sensitivity,
                    Classifier.custom_specificity]
 
