@@ -4,7 +4,7 @@ from hypermodel import CustomHyperModel
 from dataset_representation import *
 from preprocessing import *
 from wandb_utils import WandbUtils
-from kerastuner.oracles import BayesianOptimizationOracle
+from kerastuner.oracles import BayesianOptimizationOracle, GridSearchOracle
 
 
 class Main:
@@ -122,21 +122,37 @@ class Main:
                    Classifier.custom_sensitivity,
                    Classifier.custom_specificity]
 
+        # hypermodel = CustomHyperModel(
+        #     metrics=metrics,
+        #     optimizer_callout=lambda hp: hp.Choice("optimizer", values=["adam", "sgd", "rmsprop"]),
+        #     activation_callout=lambda hp: hp.Choice("activation", values=['relu', 'elu', 'selu']),
+        #     activation_output_callout=lambda hp: hp.Choice("activation_output", output_activation),
+        #     loss_callout=lambda hp: hp.Choice("loss", values=loss),
+        #     dropout_callout=lambda hp: hp.Float("dropout", min_value=0.1, max_value=0.3, step=0.05),
+        #     learning_rate_callout=lambda hp: hp.Float("learning_rate", min_value=1e-6, max_value=1e-2, step=1e-4),
+        #     dense_layers_callout=lambda hp: hp.Int("num_layers", min_value=4, max_value=20, step=1),
+        #     filters_callout=lambda hp: hp.Int("filters", min_value=8, max_value=64, step=8),
+        #     kernel_size_callout=lambda hp: hp.Int("kernel_size", min_value=3, max_value=5, step=1),
+        #     pool_size_callout=lambda hp: hp.Int("pool_size", min_value=2, max_value=4, step=1),
+        #     conv_layers_callout=lambda hp: hp.Int("conv_layers", min_value=1, max_value=4, step=1),
+        #     units_callout=lambda hp: hp.Int("units", min_value=32, max_value=500, step=16),
+        #     use_same_units_callout=lambda hp: hp.Boolean("use_same_units")
+        # )
         hypermodel = CustomHyperModel(
             metrics=metrics,
-            optimizer_callout=lambda hp: hp.Choice("optimizer", values=["adam", "sgd", "rmsprop"]),
-            activation_callout=lambda hp: hp.Choice("activation", values=['relu', 'elu', 'selu']),
-            activation_output_callout=lambda hp: hp.Choice("activation_output", output_activation),
-            loss_callout=lambda hp: hp.Choice("loss", values=loss),
-            dropout_callout=lambda hp: hp.Float("dropout", min_value=0.1, max_value=0.3, step=0.05),
-            learning_rate_callout=lambda hp: hp.Float("learning_rate", min_value=1e-6, max_value=1e-2, step=1e-4),
-            dense_layers_callout=lambda hp: hp.Int("num_layers", min_value=4, max_value=20, step=1),
-            filters_callout=lambda hp: hp.Int("filters", min_value=8, max_value=64, step=8),
-            kernel_size_callout=lambda hp: hp.Int("kernel_size", min_value=3, max_value=5, step=1),
-            pool_size_callout=lambda hp: hp.Int("pool_size", min_value=2, max_value=4, step=1),
-            conv_layers_callout=lambda hp: hp.Int("conv_layers", min_value=1, max_value=4, step=1),
-            units_callout=lambda hp: hp.Int("units", min_value=32, max_value=500, step=16),
-            use_same_units_callout=lambda hp: hp.Boolean("use_same_units")
+            optimizer_callout=lambda hp: "rmsprop",
+            activation_callout=lambda hp: "elu",
+            activation_output_callout=lambda hp: output_activation[0],
+            loss_callout=lambda hp: loss[0],
+            dropout_callout=lambda hp: 0.1,
+            learning_rate_callout=lambda hp: 0.008201,
+            dense_layers_callout=lambda hp: 4,
+            filters_callout=lambda hp: 64,
+            kernel_size_callout=lambda hp: 4,
+            pool_size_callout=lambda hp: 2,
+            conv_layers_callout=lambda hp: 2,
+            units_callout=lambda hp: 32,
+            use_same_units_callout=lambda hp: False
         )
 
         oracle = BayesianOptimizationOracle(
@@ -145,16 +161,22 @@ class Main:
         )
 
         def batch_size_callout(hp): return hp.Int("batch_size", min_value=1024, max_value=1024, step=4)
-        classifier.tune(hypermodel, oracle, 3000, objective, batch_size_callout, self.wdb)
+        # classifier.tune(hypermodel, oracle, 3000, objective, batch_size_callout, self.wdb)
+        classifier.cross_validation(hypermodel=hypermodel,
+                                    batch_size=1024,
+                                    epochs=100,
+                                    wdb=self.wdb)
         return self
 
     def finish(self): self.wdb.finish()
 
 
 # RUN
-main = Main(["cnn_multi_test"], is_categorical=True)
+main = Main(["cross_val_test"], is_categorical=True)
 try:
     # main.preprocessing(input_size=(512, 512, 1), target_size=(512, 512), skip_to_step=4)
     main.tuning()
 finally:
     main.finish()
+
+print("Finish")

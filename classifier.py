@@ -4,12 +4,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from sklearn.feature_selection import SelectKBest, chi2
+from sklearn.model_selection import GridSearchCV, KFold
 import tensorflow.keras.backend as K
 from sklearn.preprocessing import MinMaxScaler
-
+from hypermodel import CustomHyperModel
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.wrappers.scikit_learn import KerasClassifier
+from wandb.keras import WandbCallback
+import wandb
 
 from tuner import CustomTuner
 from utils import load_config
+from wandb_utils import WandbUtils
 
 
 class Classifier:
@@ -64,6 +70,9 @@ class Classifier:
         # Group the DataFrame by the label column
         grouped = characteristics_df.groupby(characteristics_df.columns[-1])
 
+        # Define the number of classes
+        self.num_classes = len(grouped)
+
         # Define the num_samples based on the label with less samples
         num_samples = min([len(group) for _, group in grouped])
 
@@ -82,7 +91,26 @@ class Classifier:
         kbest = SelectKBest(chi2, k=100)
         kbest.fit(normalized_characteristics, self.labels)
         self.features = kbest.transform(normalized_characteristics)
+
         return num_samples
+
+    def categorize_labels(self, labels):
+        """
+        Convert the labels of the dataset to categorical format if necessary.
+
+        If the number of classes in the dataset is greater than 2, the labels are converted to categorical using the
+        `to_categorical` function from Keras.
+
+        Args:
+            labels: The labels of the dataset.
+
+        Returns:
+            The labels of the dataset in categorical format, if necessary.
+        """
+        # Convert the labels to categorical, if num_classes > 2
+        if self.num_classes > 2:
+            labels = to_categorical(labels, num_classes=self.num_classes)
+        return labels
 
     @staticmethod
     def custom_specificity(y_true, y_pred):
@@ -259,5 +287,41 @@ class Classifier:
         )
 
         # Search for the best hyperparameters using the custom tuner
-        tuner.search(self.features, self.labels, epochs=epochs, objective=objective,
+        tuner.search(self.features, self.categorize_labels(self.labels), epochs=epochs, objective=objective,
                      validation_split=0.2, wandb_utils=wandb_utils)
+
+    def cross_validation(self, **kwargs):
+        batch_size = kwargs["batch_size"]
+        model: CustomHyperModel = kwargs["hypermodel"]
+        epochs = kwargs["epochs"]
+        wdb: WandbUtils = kwargs["wdb"]
+
+        # Create a KFold object with 10 folds
+        kf = KFold(n_splits=10, shuffle=True)
+
+        # Create a Keras model object from the hypermodel
+        keras_model = model.build(None)
+
+        table_data = []
+
+        for fold, (train_index, val_index) in enumerate(kf.split(self.features)):
+            # Split the data into training and validation sets for the current fold
+            x_train, x_val = self.features[train_index], self.features[val_index]
+            y_train, y_val = self.labels[train_index], self.labels[val_index]
+            # Fit the Keras model
+            keras_model.fit(x_train[..., np.newaxis], self.categorize_labels(y_train),
+                            batch_size=batch_size,
+                            epochs=epochs,
+                            validation_data=(x_val[..., np.newaxis], self.categorize_labels(y_val)),
+                            workers=6,
+                            use_multiprocessing=True,
+                            callbacks=[WandbCallback(save_model=False)])
+
+            # Insert results of this fold on table data
+            for metric in keras_model.metrics:
+                table_data.append([fold, metric.name, metric.result().numpy()])
+
+        # Log the results to Weights & Biases
+        wdb.log({"CV Results": wandb.Table(
+            columns=["Fold", "Metric", "Value"],
+            rows=table_data)})

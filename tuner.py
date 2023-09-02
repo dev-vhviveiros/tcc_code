@@ -59,7 +59,7 @@ class CustomTuner(kt.Tuner):
             # Print the sum of training and validation samples
             print(f"Trial {trial.trial_id}: Total samples: {num_samples}")
 
-            # # Reshape the input data to add a new axis
+            # Reshape the input data to add a new axis
             x_reshaped = x[..., np.newaxis]
 
             # Initiates new run for each trial on the dashboard of Weights & Biases
