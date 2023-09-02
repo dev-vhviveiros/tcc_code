@@ -164,7 +164,7 @@ class Main:
         # classifier.tune(hypermodel, oracle, 3000, objective, batch_size_callout, self.wdb)
         classifier.cross_validation(hypermodel=hypermodel,
                                     batch_size=1024,
-                                    epochs=100,
+                                    epochs=150,
                                     wdb=self.wdb)
         return self
 

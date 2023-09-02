@@ -302,26 +302,35 @@ class Classifier:
         # Create a Keras model object from the hypermodel
         keras_model = model.build(None)
 
+        # Create an empty list to hold the table data
         table_data = []
+        metrics_names = []
 
         for fold, (train_index, val_index) in enumerate(kf.split(self.features)):
             # Split the data into training and validation sets for the current fold
             x_train, x_val = self.features[train_index], self.features[val_index]
             y_train, y_val = self.labels[train_index], self.labels[val_index]
             # Fit the Keras model
-            keras_model.fit(x_train[..., np.newaxis], self.categorize_labels(y_train),
-                            batch_size=batch_size,
-                            epochs=epochs,
-                            validation_data=(x_val[..., np.newaxis], self.categorize_labels(y_val)),
-                            workers=6,
-                            use_multiprocessing=True,
-                            callbacks=[WandbCallback(save_model=False)])
+            history = keras_model.fit(x_train[..., np.newaxis], self.categorize_labels(y_train),
+                                      batch_size=batch_size,
+                                      epochs=epochs,
+                                      validation_data=(x_val[..., np.newaxis], self.categorize_labels(y_val)),
+                                      workers=6,
+                                      use_multiprocessing=True,
+                                      callbacks=[WandbCallback(save_model=False)])
+            # Insert results of this fold into table_data
+            if len(metrics_names) == 0:
+                metrics_names = [f"val_{metric}" for metric in keras_model.metrics_names]
+            results = [fold] + [history.history[metric][-1] for metric in metrics_names]
+            table_data.append(results)
 
-            # Insert results of this fold on table data
-            for metric in keras_model.metrics:
-                table_data.append([fold, metric.name, metric.result().numpy()])
+        columns = ["Fold"] + metrics_names
+
+        # Create a Pandas DataFrame with the specified columns
+        df = pd.DataFrame(table_data, columns=columns)
+
+        # Create the wandb.Table with the specified columns
+        table = wandb.Table(dataframe=df, columns=columns)
 
         # Log the results to Weights & Biases
-        wdb.log({"CV Results": wandb.Table(
-            columns=["Fold", "Metric", "Value"],
-            rows=table_data)})
+        wdb.log({"CV Results": table})
