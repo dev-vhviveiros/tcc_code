@@ -290,53 +290,76 @@ class Classifier:
         tuner.search(self.features, self.categorize_labels(self.labels), epochs=epochs, objective=objective,
                      validation_split=0.2, wandb_utils=wandb_utils)
 
+    def __build_model(self, **kwargs):
+        model = CustomHyperModel(
+            metrics=kwargs["metrics"],
+            optimizer_callout=lambda _: kwargs["optimizer_callout"],
+            activation_callout=lambda _: kwargs["activation_callout"],
+            activation_output_callout=lambda _: kwargs["activation_output_callout"],
+            loss_callout=lambda _: kwargs["loss_callout"],
+            dropout_callout=lambda _: kwargs["dropout_callout"],
+            learning_rate_callout=lambda _: kwargs["learning_rate_callout"],
+            dense_layers_callout=lambda _: kwargs["dense_layers_callout"],
+            filters_callout=lambda _: kwargs["filters_callout"],
+            kernel_size_callout=lambda _: kwargs["kernel_size_callout"],
+            pool_size_callout=lambda _: kwargs["pool_size_callout"],
+            conv_layers_callout=lambda _: kwargs["conv_layers_callout"],
+            units_callout=lambda _: kwargs["units_callout"],
+            use_same_units_callout=lambda _: kwargs["use_same_units_callout"]
+        )
+
+        return model.build(None)
+
     def cross_validation(self, **kwargs):
         batch_size = kwargs["batch_size"]
-        model: CustomHyperModel = kwargs["hypermodel"]
         epochs = kwargs["epochs"]
         wdb: WandbUtils = kwargs["wdb"]
+        params = kwargs["params"]
+        metrics = kwargs["metrics"]
 
-        # Create a KFold object with 10 folds
-        kf = KFold(n_splits=10, shuffle=True)
+        for trial_params in params:
+            # Create a KFold object with 10 folds
+            kf = KFold(n_splits=10, shuffle=True)
 
-        # Create a Keras model object from the hypermodel
-        keras_model = model.build(None)
+            # Build the Keras model
+            keras_model = self.__build_model(metrics=metrics, **trial_params)
 
-        # Create an empty list to hold the table data
-        table_data = []
-        metrics_names = []
+            # Create an empty list to hold the table data
+            table_data = []
+            metrics_names = []
 
-        for fold, (train_index, val_index) in enumerate(kf.split(self.features)):
-            # Split the data into training and validation sets for the current fold
-            x_train, x_val = self.features[train_index], self.features[val_index]
-            y_train, y_val = self.labels[train_index], self.labels[val_index]
-            # Fit the Keras model
-            history = keras_model.fit(x_train[..., np.newaxis], self.categorize_labels(y_train),
-                                      batch_size=batch_size,
-                                      epochs=epochs,
-                                      validation_data=(x_val[..., np.newaxis], self.categorize_labels(y_val)),
-                                      workers=6,
-                                      use_multiprocessing=True,
-                                      callbacks=[WandbCallback(save_model=False)])
-            # Insert results of this fold into table_data
-            if len(metrics_names) == 0:
-                metrics_names = [f"val_{metric}" for metric in keras_model.metrics_names]
-            results = [fold] + [history.history[metric][-1] for metric in metrics_names]
-            table_data.append(results)
+            for fold, (train_index, val_index) in enumerate(kf.split(self.features)):
+                # Split the data into training and validation sets for the current fold
+                x_train, x_val = self.features[train_index], self.features[val_index]
+                y_train, y_val = self.labels[train_index], self.labels[val_index]
+                # Fit the Keras model
+                history = keras_model.fit(x_train[..., np.newaxis], self.categorize_labels(y_train),
+                                          batch_size=batch_size,
+                                          epochs=epochs,
+                                          validation_data=(x_val[..., np.newaxis], self.categorize_labels(y_val)),
+                                          workers=6,
+                                          use_multiprocessing=True,
+                                          callbacks=[WandbCallback(save_model=False)])
+                # Insert results of this fold into table_data
+                if len(metrics_names) == 0:
+                    metrics_names = [f"val_{metric}" for metric in keras_model.metrics_names]
+                results = [fold] + [history.history[metric][-1] for metric in metrics_names]
+                table_data.append(results)
 
-        columns = ["Fold"] + metrics_names
+            columns = ["Fold"] + metrics_names
 
-        # Compute the mean values for each column
-        mean_values = ["Mean"] + [np.mean([row[i] for row in table_data[1:]]) for i in range(1, len(metrics_names) + 1)]
+            # Compute the mean values for each column
+            mean_values = ["Mean"] + [np.mean([row[i] for row in table_data[1:]])
+                                      for i in range(1, len(metrics_names) + 1)]
 
-        # Append the mean values to the table data
-        table_data.append(mean_values)
+            # Append the mean values to the table data
+            table_data.append(mean_values)
 
-        # Create a Pandas DataFrame with the specified columns
-        df = pd.DataFrame(table_data, columns=columns)
+            # Create a Pandas DataFrame with the specified columns
+            df = pd.DataFrame(table_data, columns=columns)
 
-        # Create the wandb.Table with the specified columns
-        table = wandb.Table(dataframe=df, columns=columns, allow_mixed_types=True)
+            # Create the wandb.Table with the specified columns
+            table = wandb.Table(dataframe=df, columns=columns, allow_mixed_types=True)
 
-        # Log the results to Weights & Biases
-        wdb.log({"CV Results": table})
+            # Log the results to Weights & Biases
+            wdb.log({"CV Results": table})

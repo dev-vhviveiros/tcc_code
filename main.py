@@ -138,34 +138,37 @@ class Main:
         #     units_callout=lambda hp: hp.Int("units", min_value=32, max_value=500, step=16),
         #     use_same_units_callout=lambda hp: hp.Boolean("use_same_units")
         # )
-        hypermodel = CustomHyperModel(
-            metrics=metrics,
-            optimizer_callout=lambda hp: "rmsprop",
-            activation_callout=lambda hp: "elu",
-            activation_output_callout=lambda hp: output_activation[0],
-            loss_callout=lambda hp: loss[0],
-            dropout_callout=lambda hp: 0.1,
-            learning_rate_callout=lambda hp: 0.008201,
-            dense_layers_callout=lambda hp: 4,
-            filters_callout=lambda hp: 64,
-            kernel_size_callout=lambda hp: 4,
-            pool_size_callout=lambda hp: 2,
-            conv_layers_callout=lambda hp: 2,
-            units_callout=lambda hp: 32,
-            use_same_units_callout=lambda hp: False
-        )
 
         oracle = BayesianOptimizationOracle(
             objective=objective,
             max_trials=700
         )
 
+        # Define the list of argument values
+        arg_values = [
+            ["rmsprop", "elu", output_activation[0], loss[0], 0.1, 0.008201, 4, 64, 4, 2, 2, 32, False],
+            ["rmsprop", "selu", "softmax", "categorical_crossentropy", 0.1, 0.004801, 8, 48, 4, 2, 2, 208, True],
+            ["adam", "relu", "softmax", "categorical_crossentropy", 0.15, 0.006201, 9, 64, 4, 4, 1, 32, False],
+            ["adam", "relu", "softmax", "categorical_crossentropy", 0.2, 0.001401, 11, 32, 3, 2, 3, 352, False],
+            ["adam", "relu", "softmax", "categorical_crossentropy", 0.1, 0.009801, 9, 8, 3, 3, 1, 496, False]
+        ]
+
+        # Define the argument names
+        arg_names = [
+            "optimizer_callout", "activation_callout", "activation_output_callout", "loss_callout", "dropout_callout", "learning_rate_callout",
+            "dense_layers_callout", "filters_callout", "kernel_size_callout", "pool_size_callout", "conv_layers_callout", "units_callout", "use_same_units_callout"
+        ]
+
+        # Create a list of dictionaries with keyword arguments for each model
+        params = [dict(zip(arg_names, values)) for values in arg_values]
+
         def batch_size_callout(hp): return hp.Int("batch_size", min_value=1024, max_value=1024, step=4)
         # classifier.tune(hypermodel, oracle, 3000, objective, batch_size_callout, self.wdb)
-        classifier.cross_validation(hypermodel=hypermodel,
-                                    batch_size=1024,
-                                    epochs=150,
-                                    wdb=self.wdb)
+        classifier.cross_validation(batch_size=1024,
+                                    epochs=200,
+                                    wdb=self.wdb,
+                                    metrics=metrics,
+                                    params=params)
         return self
 
     def finish(self): self.wdb.finish()
