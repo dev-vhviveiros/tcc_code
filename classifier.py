@@ -326,11 +326,17 @@ class Classifier:
 
         columns = ["Fold"] + metrics_names
 
+        # Compute the mean values for each column
+        mean_values = ["Mean"] + [np.mean([row[i] for row in table_data[1:]]) for i in range(1, len(metrics_names) + 1)]
+
+        # Append the mean values to the table data
+        table_data.append(mean_values)
+
         # Create a Pandas DataFrame with the specified columns
         df = pd.DataFrame(table_data, columns=columns)
 
         # Create the wandb.Table with the specified columns
-        table = wandb.Table(dataframe=df, columns=columns)
+        table = wandb.Table(dataframe=df, columns=columns, allow_mixed_types=True)
 
         # Log the results to Weights & Biases
         wdb.log({"CV Results": table})
